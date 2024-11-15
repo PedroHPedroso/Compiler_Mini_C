@@ -1,4 +1,4 @@
-grammar Language;
+grammar Lang;
 
 prog        : functions line+         #progLine 
             ;
