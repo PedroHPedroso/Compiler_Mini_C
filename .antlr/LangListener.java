@@ -1,4 +1,4 @@
-// Generated from Lang.g4 by ANTLR 4.13.2
+// Generated from c:/Users/pedro/OneDrive/Área de Trabalho/Compilador/Lang.g4 by ANTLR 4.13.1
 import org.antlr.v4.runtime.tree.ParseTreeListener;
 
 /**
