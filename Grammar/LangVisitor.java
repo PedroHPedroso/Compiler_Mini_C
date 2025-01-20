@@ -1,3 +1,5 @@
+package Grammar;
+
 // Generated from Lang.g4 by ANTLR 4.13.2
 import org.antlr.v4.runtime.tree.ParseTreeVisitor;
 
@@ -85,17 +87,12 @@ public interface LangVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitLine(LangParser.LineContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link LangParser#funcInvoc}.
+	 * Visit a parse tree produced by the {@code blockLine}
+	 * labeled alternative in {@link LangParser#block}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitFuncInvoc(LangParser.FuncInvocContext ctx);
-	/**
-	 * Visit a parse tree produced by {@link LangParser#args}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitArgs(LangParser.ArgsContext ctx);
+	T visitBlockLine(LangParser.BlockLineContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link LangParser#stmt}.
 	 * @param ctx the parse tree
@@ -103,17 +100,46 @@ public interface LangVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitStmt(LangParser.StmtContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link LangParser#input}.
+	 * Visit a parse tree produced by the {@code inputRead}
+	 * labeled alternative in {@link LangParser#input}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitInput(LangParser.InputContext ctx);
+	T visitInputRead(LangParser.InputReadContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link LangParser#output}.
+	 * Visit a parse tree produced by the {@code outputWriteStr}
+	 * labeled alternative in {@link LangParser#output}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitOutput(LangParser.OutputContext ctx);
+	T visitOutputWriteStr(LangParser.OutputWriteStrContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code outputWriteVar}
+	 * labeled alternative in {@link LangParser#output}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitOutputWriteVar(LangParser.OutputWriteVarContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code outputWriteExpr}
+	 * labeled alternative in {@link LangParser#output}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitOutputWriteExpr(LangParser.OutputWriteExprContext ctx);
+	/**
+	 * Visit a parse tree produced by the {@code funcInvocLine}
+	 * labeled alternative in {@link LangParser#funcInvoc}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitFuncInvocLine(LangParser.FuncInvocLineContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link LangParser#args}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitArgs(LangParser.ArgsContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link LangParser#pointer}.
 	 * @param ctx the parse tree
@@ -127,17 +153,19 @@ public interface LangVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitTypeSpec(LangParser.TypeSpecContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link LangParser#ifst}.
+	 * Visit a parse tree produced by the {@code ifstIf}
+	 * labeled alternative in {@link LangParser#ifst}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitIfst(LangParser.IfstContext ctx);
+	T visitIfstIf(LangParser.IfstIfContext ctx);
 	/**
-	 * Visit a parse tree produced by {@link LangParser#elseif}.
+	 * Visit a parse tree produced by the {@code ifstIfElse}
+	 * labeled alternative in {@link LangParser#ifst}.
 	 * @param ctx the parse tree
 	 * @return the visitor result
 	 */
-	T visitElseif(LangParser.ElseifContext ctx);
+	T visitIfstIfElse(LangParser.IfstIfElseContext ctx);
 	/**
 	 * Visit a parse tree produced by {@link LangParser#forst}.
 	 * @param ctx the parse tree
@@ -168,13 +196,6 @@ public interface LangVisitor<T> extends ParseTreeVisitor<T> {
 	 * @return the visitor result
 	 */
 	T visitDefClause(LangParser.DefClauseContext ctx);
-	/**
-	 * Visit a parse tree produced by the {@code blockLine}
-	 * labeled alternative in {@link LangParser#block}.
-	 * @param ctx the parse tree
-	 * @return the visitor result
-	 */
-	T visitBlockLine(LangParser.BlockLineContext ctx);
 	/**
 	 * Visit a parse tree produced by the {@code condRelop}
 	 * labeled alternative in {@link LangParser#cond}.

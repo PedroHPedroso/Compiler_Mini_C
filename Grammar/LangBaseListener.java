@@ -1,4 +1,6 @@
-// Generated from c:/Users/pedro/OneDrive/Área de Trabalho/Compilador/Lang.g4 by ANTLR 4.13.1
+package Grammar;
+
+// Generated from Lang.g4 by ANTLR 4.13.2
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ErrorNode;
@@ -160,25 +162,13 @@ public class LangBaseListener implements LangListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterFuncInvoc(LangParser.FuncInvocContext ctx) { }
+	@Override public void enterBlockLine(LangParser.BlockLineContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitFuncInvoc(LangParser.FuncInvocContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterArgs(LangParser.ArgsContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitArgs(LangParser.ArgsContext ctx) { }
+	@Override public void exitBlockLine(LangParser.BlockLineContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -196,25 +186,73 @@ public class LangBaseListener implements LangListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterInput(LangParser.InputContext ctx) { }
+	@Override public void enterInputRead(LangParser.InputReadContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitInput(LangParser.InputContext ctx) { }
+	@Override public void exitInputRead(LangParser.InputReadContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterOutput(LangParser.OutputContext ctx) { }
+	@Override public void enterOutputWriteStr(LangParser.OutputWriteStrContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitOutput(LangParser.OutputContext ctx) { }
+	@Override public void exitOutputWriteStr(LangParser.OutputWriteStrContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterOutputWriteVar(LangParser.OutputWriteVarContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitOutputWriteVar(LangParser.OutputWriteVarContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterOutputWriteExpr(LangParser.OutputWriteExprContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitOutputWriteExpr(LangParser.OutputWriteExprContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterFuncInvocLine(LangParser.FuncInvocLineContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitFuncInvocLine(LangParser.FuncInvocLineContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterArgs(LangParser.ArgsContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitArgs(LangParser.ArgsContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -244,25 +282,25 @@ public class LangBaseListener implements LangListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterIfst(LangParser.IfstContext ctx) { }
+	@Override public void enterIfstIf(LangParser.IfstIfContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitIfst(LangParser.IfstContext ctx) { }
+	@Override public void exitIfstIf(LangParser.IfstIfContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void enterElseif(LangParser.ElseifContext ctx) { }
+	@Override public void enterIfstIfElse(LangParser.IfstIfElseContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
-	@Override public void exitElseif(LangParser.ElseifContext ctx) { }
+	@Override public void exitIfstIfElse(LangParser.IfstIfElseContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *
@@ -323,18 +361,6 @@ public class LangBaseListener implements LangListener {
 	 * <p>The default implementation does nothing.</p>
 	 */
 	@Override public void exitDefClause(LangParser.DefClauseContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void enterBlockLine(LangParser.BlockLineContext ctx) { }
-	/**
-	 * {@inheritDoc}
-	 *
-	 * <p>The default implementation does nothing.</p>
-	 */
-	@Override public void exitBlockLine(LangParser.BlockLineContext ctx) { }
 	/**
 	 * {@inheritDoc}
 	 *

@@ -1,0 +1,46 @@
+int main() {
+
+    int x;
+    x = 10;
+
+    // Ler valor em 'z'
+    scanf(&z);
+
+    // Imprimir variável e expressão
+    printf(x);
+    printf("Hello", x * 2);
+
+    // Condicional if/else
+    if (x != 0) {
+        printf("x not zero");
+    } 
+    else {
+        printf("x is zero");
+    }
+
+    // Exemplo de 'for'
+    for(x=1; x<5; x=x+1) {
+        printf(x);
+    }
+
+    // Exemplo de 'while'
+    while(x < 10) {
+        x = x + 1;
+        printf(x);
+    }
+
+    // Exemplo de 'switch'
+    switch(z) {
+        case 1:
+            printf("Case 1");
+            break;
+        case 2:
+            printf("Case 2");
+            break;
+        default:
+            printf("Default");
+            break;
+    }
+
+    return;
+}
