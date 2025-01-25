@@ -1,75 +1,59 @@
-import Grammar.LangLexer;
-import Grammar.LangParser;
 import org.antlr.v4.runtime.*;
-import org.antlr.v4.runtime.tree.ParseTree;
-import Lang.LangErrorListener;
-import Lang.LangInterpreter;
-import Lang.SemanticLangListener;
-
-import java.io.IOException;
+import org.antlr.v4.runtime.tree.*;
+import Lang.*;
+import Grammar.LangParser;
+import Grammar.LangLexer;
+import java.util.*;
 
 public class Main {
     public static void main(String[] args) {
-        // Você pode mudar o caminho do arquivo se quiser recebê-lo via args.
-        String fileName = "input.lang";
         try {
-            // 1. Criar o input stream a partir do arquivo
-            CharStream inputStream = CharStreams.fromFileName(fileName);
+            // Carregar o arquivo de entrada
+            String inputFile = "input.lang";
+            CharStream input = CharStreams.fromFileName(inputFile);
 
-            // 2. Criar o lexer
-            LangLexer lexer = new LangLexer(inputStream);
+            // Lexer
+            LangLexer lexer = new LangLexer(input);
+            CommonTokenStream tokens = new CommonTokenStream(lexer);
 
-            // 3. Criar o token stream
-            CommonTokenStream tokenStream = new CommonTokenStream(lexer);
-
-            // 4. Criar o parser
-            LangParser parser = new LangParser(tokenStream);
-
-            // 5. Criar e registrar o errorListener
+            // Parser
+            LangParser parser = new LangParser(tokens);
             LangErrorListener errorListener = new LangErrorListener();
             parser.removeErrorListeners();
             parser.addErrorListener(errorListener);
 
-            // Se quiser, pode configurar a estratégia de erro:
-            // parser.setErrorHandler(new DefaultErrorStrategy());
-            // parser.setErrorHandler(new BailErrorStrategy());
-
-            // 6. Criar e registrar o semanticListener
-            SemanticLangListener semanticListener = new SemanticLangListener();
-            // remover outros parse listeners, se houver
-            parser.removeParseListeners();
-            // registrar
-            parser.addParseListener(semanticListener);
-
-            // 7. Invocar a regra inicial do parser (prog)
+            // Árvore de Análise
             ParseTree tree = parser.prog();
 
-            // 8. Verificar se houve erros de sintaxe
+            // Verificação de erros sintáticos
             if (errorListener.hasErrors()) {
-                System.out.println("Errors!");
-                for (String msg : errorListener.getErrorMessages()) {
-                    System.out.println(msg);
-                }
-                return; // não prosseguir
+                System.out.println("Erros de sintaxe encontrados:");
+                errorListener.getErrorMessages().forEach(System.out::println);
+                return;
             }
 
-            // 9. Verificar erros semânticos
+            // Listener Semântico
+            SemanticLangListener semanticListener = new SemanticLangListener();
+            ParseTreeWalker walker = new ParseTreeWalker();
+            walker.walk(semanticListener, tree);
+
+            // Verificação de erros semânticos
             if (semanticListener.hasErrors()) {
-                System.out.println("Semantic Errors!");
-                for (String msg : semanticListener.getErrorMessages()) {
-                    System.out.println(msg);
-                }
-                return; // não prosseguir
+                System.out.println("Erros semânticos encontrados:");
+                semanticListener.getErrorMessages().forEach(System.out::println);
+                return;
             }
 
-            // 10. Se não houve erros, criar o interpretador e visitar a árvore
-            LangInterpreter interpreter = new LangInterpreter(semanticListener.getFunctions());
-            interpreter.visit(tree);
+            // Conversão de funções declaradas para o formato esperado pelo interpretador
+            Map<String, ParseTree> convertedFunctions = new HashMap<>();
+            for (Map.Entry<String, LangParser.FunctionContext> entry : semanticListener.getDeclaredFunctions().entrySet()) {
+                convertedFunctions.put(entry.getKey(), entry.getValue());
+            }
 
-        } catch (IOException e) {
-            System.err.println("Erro ao ler arquivo: " + e.getMessage());
+            // Interpretador
+            LangInterpreter interpreter = new LangInterpreter(convertedFunctions);
+            interpreter.visit(tree);
         } catch (Exception e) {
-            // qualquer outra exceção
             e.printStackTrace();
         }
     }

@@ -2,64 +2,75 @@ package Lang;
 
 import Grammar.LangBaseListener;
 import Grammar.LangParser;
-import org.antlr.v4.runtime.tree.ParseTree;
-
 import java.util.*;
 
 public class SemanticLangListener extends LangBaseListener {
+    private final List<String> errors = new ArrayList<>();
+    private final Set<String> declaredVariables = new HashSet<>();
+    private final Map<String, LangParser.FunctionContext> declaredFunctions = new HashMap<>();
 
-    private final Map<String, ParseTree> functions = new HashMap<>();
-    private final Set<String> variables = new HashSet<>();
-    private boolean hasErrors = false;
-    private final List<String> errorMessages = new ArrayList<>();
-
-    // Getters
-    public Map<String, ParseTree> getFunctions() {
-        return functions;
-    }
-
-    public Set<String> getVariables() {
-        return variables;
-    }
-
+    // Métodos para verificar erros
     public boolean hasErrors() {
-        return hasErrors;
+        return !errors.isEmpty();
     }
 
     public List<String> getErrorMessages() {
-        return errorMessages;
+        return errors;
     }
 
-    @Override
-    public void exitInputRead(LangParser.InputReadContext ctx) {
-        String varName = ctx.VAR().getText();
-        variables.add(varName);
+    // Métodos para obter variáveis e funções declaradas
+    public Set<String> getDeclaredVariables() {
+        return declaredVariables;
     }
 
-    @Override
-    public void exitAtribVar(LangParser.AtribVarContext ctx) {
-        String varName = ctx.VAR().getText();
-        variables.add(varName);
+    public Map<String, LangParser.FunctionContext> getDeclaredFunctions() {
+        return declaredFunctions;
     }
 
+    // Verifica a declaração de funções
     @Override
-    public void exitOutputWriteVar(LangParser.OutputWriteVarContext ctx) {
-        String varName = ctx.VAR().getText();
-        if (!variables.contains(varName)) {
-            hasErrors = true;
-            errorMessages.add("Undefined variable " + varName);
-        }
-    }
-
-    @Override
-    public void exitFunction(LangParser.FunctionContext ctx) {
-        String fnName = ctx.VAR().getText();
-        if (functions.containsKey(fnName)) {
-            hasErrors = true;
-            errorMessages.add("Function " + fnName + " already defined");
+    public void exitRandomFunction(LangParser.RandomFunctionContext ctx) {
+        String functionName = ctx.VAR().getText();
+        if (declaredFunctions.containsKey(functionName)) {
+            errors.add("Função já definida: " + functionName);
         } else {
-            // Armazena a própria subárvore (ParseTree) associada a esse nome de função
-            functions.put(fnName, ctx);
+            declaredFunctions.put(functionName, ctx);
         }
     }
+
+    // Verifica declarações de variáveis
+    @Override
+    public void exitAtribDecl(LangParser.AtribDeclContext ctx) {
+        String varName = ctx.VAR().getText();
+        if (declaredVariables.contains(varName)) {
+            errors.add("Variável já declarada: " + varName);
+        } else {
+            declaredVariables.add(varName);
+        }
+    }
+
+    // Verifica atribuições de variáveis
+    @Override
+    public void exitAtribAssign(LangParser.AtribAssignContext ctx) {
+        String varName = ctx.VAR().getText();
+        if (!declaredVariables.contains(varName)) {
+            errors.add("Variável não declarada: " + varName);
+        }
+    }
+
+    // Verifica saída de variáveis
+    @Override
+    public void exitStmtOutput(LangParser.StmtOutputContext ctx) {
+        // Iterar sobre as expressões de saída
+        LangParser.OutputWriteContext outputCtx = (LangParser.OutputWriteContext) ctx.output();
+        List<LangParser.ExprContext> expressions = outputCtx.expr();
+        for (LangParser.ExprContext expr : expressions) {
+            // Se for um identificador de variável, verificamos se está declarado
+            String varName = expr.getText();
+            if (!declaredVariables.contains(varName)) {
+                errors.add("Variável não declarada usada na saída: " + varName);
+            }
+        }
+    }    
 }
+    

@@ -27,7 +27,6 @@ public class LangErrorListener extends BaseErrorListener {
                             String msg,
                             RecognitionException e) {
         hasErrors = true;
-        // Mensagem de erro adaptada para o contexto da gramática "Lang"
         errorMessages.add("Erro de sintaxe na linha " 
                           + line 
                           + ", posição " 

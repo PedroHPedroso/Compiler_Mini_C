@@ -1,10 +1,11 @@
 int main() {
 
     int x;
-    x = 10;
 
+    int z = 10;
+    
     // Ler valor em 'z'
-    scanf(&z);
+    scanf("int",&z);
 
     // Imprimir variável e expressão
     printf(x);

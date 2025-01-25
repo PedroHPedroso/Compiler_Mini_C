@@ -1,49 +1,42 @@
 grammar Lang;
 
+//RELATORIO GERAL
+/*
+  Revisar tudo.
+  Arrumar input.
+  Arrumar output.
+  Arrumar/Revisar STR.
+  Revisar typeSpec CHAR.
+  Tentar implementar ponteiros, structs, unions.
+*/
+
+
 //--------------------
 // Regras de alto nível
 //--------------------
 prog
-  : decl          #progDecl
-  | functions     #progFunctions
-  | line+         #progLine
+  : preprocessor* functions               #progLine
   ;
 
-decl
-  : typeSpec varDeclList EOL
-  ;
-
-varDeclList
-  : 
-   varDecl 
-  |varDecl (',' varDecl)*
-  ;
-
-varDecl
-  : VAR ('[' NUM ']')? ('=' expr)?
-  ;
-
-//--------------------
-// FUNÇÕES
-//--------------------
 functions
   : function functions
-  | // vazio
+  | //empty
   ;
 
 function
-  : typeSpec VAR '(' params ')' fnBlock
+  : typeSpec VAR '(' params ')' fnBlock   #randomFunction
+  | 'int' 'main' '(' ')' fnBlock          #mainFunction
   ;
 
 fnBlock
-  : '{' fnBody '}'
+  : '{' fnBody '}'                       #fnBlockLine
   ;
 
 fnBody
-  : line
-  | line fnBody
-  | RETURN expr EOL
-  | RETURN EOL
+  : line                                 #fnBodyLine
+  | line fnBody                          #fnBodyLineMore
+  | RETURN expr EOL                      #fnReturnExprLine
+  | RETURN EOL                           #fnReturnLine
   ;
 
 params
@@ -52,198 +45,168 @@ params
   | // vazio
   ;
 
-//--------------------
-// LINHAS / BLOCOS
-//--------------------
 line
-  : 
-    decl EOL
-  | stmt EOL
-  | ifst
-  | whilelist
-  | forst
-  | switchst
-  | block
-  | EOL
+  : stmt EOL                             #lineStmt
+  | ifst                                 #lineIf
+  | dowhilest                            #lineDoWhile
+  | whilest                              #lineWhile
+  | forst                                #lineFor
+  | switchst                             #lineSwitch
+  | block                                #lineBlock
+  | EOL                                  #lineEOL
+  | COMMENT_LINE                         #lineComment
+  | COMMENT_BLOCK                        #blockComment
   ;
 
-block
-  : '{' line+ '}'          #blockLine
-  ;
-
-//--------------------
-// STATEMENTS
-//--------------------
 stmt
-  : atrib
-  | input
-  | output
-  | funcInvoc
-  | pointer
+  : atrib                                #stmtAtrib
+  | input                                #stmtInput
+  | output                               #stmtOutput
+  | funcInvoc                            #stmtFuncInvoc
   ;
 
-// 1) Input rotulado
-input 
-  : SCANF '(' '&' VAR ')'  #inputRead
-  ;
-
-// 2) Output com 3 subalternativas rotuladas
-output
-  : PRINTF '(' STR (SEP expr)* ')'  #outputWriteStr
-  | PRINTF '(' VAR ')'              #outputWriteVar
-  | PRINTF '(' expr ')'             #outputWriteExpr
-  ;
-
-//--------------------
-// FUNC INVOC
-//--------------------
 funcInvoc
-  : VAR '(' args? ')'  #funcInvocLine
+  : VAR '(' args? ')'                    #funcInvocLine
   ;
 
 args
   : expr (SEP expr)*
   ;
 
-//--------------------
-// PONTEIRO
-//--------------------
-pointer
-  : VAR AT '&' VAR
-  | MULT VAR AT expr
+input
+  : SCANF '(' STR (SEP '&'* VAR)+ ')'     #inputRead
+  | GETS '(' VAR ')'                      #inputReadVarStr
   ;
 
-//--------------------
-// ATRIBUIÇÃO
-//--------------------
+output
+  : PRINTF '(' VAR ')'                    #outputVar
+  | PRINTF '(' STR (SEP expr)* ')'        #outputWrite
+  | PUTS '(' VAR ')' *                    #outPutWriteStr
+  ;
+
+ifst
+  : IF '(' cond ')' block                       #ifstIf
+  | IF '(' cond ')' b1=block ELSE b2=block      #ifstIfElse
+  ;
+
+dowhilest
+  : DO '{' block '}' WHILE '(' cond ')' EOL     #dowhilestDoWhile
+  ;
+
+whilest
+  : WHILE '(' cond ')' block                    #whilestWhile
+  ;
+
+forst
+  : FOR '(' atrib EOL cond EOL atrib ')' block  #forstFor
+  ;
+
+switchst
+  : SWITCH '(' VAR ')' '{' caseClause* defClause? '}'  #switchStmt
+  ;
+
+caseClause
+  : CASE expr ':' line* BREAK EOL
+  ;
+
+defClause
+  : DEFAULT ':' line* BREAK EOL
+  ;
+
+block
+  : '{' line* '}'                                #blockLine
+  ;
+
+cond
+  : expr                                         #condExpr
+  | e1=expr RELOP=(EQ|NE|LT|GT|LE|GE) e2=expr    #condRelop
+  | c1=cond AND c2=cond                          #condAnd
+  | c1=cond OR c2=cond                           #condOr
+  | NOT cond                                     #condNot
+  ;
+
+atrib
+  : typeSpec VAR                                  #atribVar
+  | typeSpec VAR AT expr                          #atribDecl
+  | typeSpec VAR AT STR                           #atribChar
+  | typeSpec VAR '[' factor ']'                   #atribArray
+  | VAR AT expr                                   #atribAssign
+  | VAR '++'                                      #atribIncrement
+  | VAR '--'                                      #atribDecrement
+  ;
+
 typeSpec
   : 'int'
   | 'float'
+  | 'double'
   | 'char'
   | 'void'
   ;
 
-//--------------------
-// IF / ELSE
-//--------------------
-ifst
-  : IF '(' cond ')' b1=block                    #ifstIf
-  | IF '(' cond ')' b1=block ELSE b2=block      #ifstIfElse
-  ;
-
-
-//--------------------
-// FOR
-//--------------------
-forst
-  : FOR '(' atrib EOL cond EOL atrib ')' block
-  ;
-
-//--------------------
-// WHILE
-//--------------------
-whilelist
-  : WHILE '(' cond ')' block
-  ;
-
-//--------------------
-// SWITCH
-//--------------------
-switchst
-  : SWITCH '(' VAR ')' '{' caseClause* defClause? '}'
-  ;
-
-caseClause
-  : CASE expr ':' line+ BREAK EOL
-  ;
-
-defClause
-  : DEFAULT ':' line+ BREAK EOL
-  ;
-
-//--------------------
-// EXP / COND
-//--------------------
-cond
-  : expr                                           #condExpr
-  | e1=expr op=(EQ|NE|LT|GT|LE|GE) e2=expr         #condRelop
-  | c1=cond AND c2=cond                            #condAnd
-  | c1=cond OR c2=cond                             #condOr
-  | NOT cond                                       #condNot
-  ;
-
-atrib
-  : VAR AT expr           #atribVar
-  ;
-
 expr
-  : term PLUS expr        #exprPlus
-  | term MINUS expr       #exprMinus
-  | term                  #exprTerm
+  : term PLUS expr                               #exprPlus
+  | term MINUS expr                              #exprMinus
+  | term                                         #exprTerm
   ;
 
 term
-  : factor MULT term      #termMult
-  | factor DIV term       #termDiv
-  | factor                #termFactor
+  : factor MULT term                             #termMult
+  | factor DIV term                              #termDiv
+  | factor                                       #termFactor
   ;
 
 factor
-  : '(' expr ')'          #factorExpr
-  | VAR                   #factorVar
-  | NUM                   #factorNum
+  : '(' expr ')'                                 #factorExpr
+  | VAR                                          #factorVar
+  | NUM                                          #factorNum
+  | DECIM                                        #factorDecim
   ;
 
 //--------------------
-// DIRETIVAS (opcional)
+// Diretivas de pré-processador
 //--------------------
 preprocessor
-  : '#include' '<' VAR '>'
-  | '#DEFINE' VAR expr
+  : '#include' '<' VAR '>'                       #includeDirective
+  | '#define' VAR expr                           #defineDirective
   ;
 
 //=========================
-// LÉXICO
+// Regras Léxicas
 //=========================
-WHILE       : [wW][hH][iI][lL][eE] ;
-FOR         : [fF][oO][rR] ;
-IF          : [iI][fF] ;
-RETURN      : [rR][eE][tT][uU][rR][nN] ;
-ELSE        : [eE][lL][sS][eE] ;
-SWITCH      : [sS][wW][iI][tT][cC][hH] ;
-CASE        : [cC][aA][sS][eE] ;
-DEFAULT     : [dD][eE][fF][aA][uU][lL] ;
-BREAK       : [bB][rR][eE][aA][kK] ;
-PRINTF      : [pP][rR][iI][nN][tT][fF] ;
-SCANF       : [sS][cC][aA][nN][fF] ;
-
-// TOKENS NOMEADOS (para condRelop)
-EQ          : '==';
-NE          : '!=';
-LT          : '<';
-GT          : '>';
-LE          : '<=';
-GE          : '>=';
-
-// TOKENS de operadores lógicos / aritméticos
-AND         : '&&';
-OR          : '||';
-NOT         : '!';
-PLUS        : '+';
-MINUS       : '-';
-MULT        : '*';
-DIV         : '/';
-
-// OUTROS
-AT          : '=';
-SEP         : ',';
-EOL         : ';';
-
-// LITERAIS
-STR         : '"' ~["]* '"' ;
-NUM         : [0-9]+ ('.' [0-9]+)? ;
-VAR         : [a-zA-Z_][a-zA-Z0-9_]* ;
-
-// COMENTÁRIOS e ESPAÇOS
-COMMENT     : '//' ~[\r\n]* -> skip ;
-WS          : [ \t\n\r]+ -> skip ;
+DO           : 'do';
+WHILE        : 'while';
+FOR          : 'for';
+IF           : 'if';
+RETURN       : 'return';
+ELSE         : 'else';
+SWITCH       : 'switch';
+CASE         : 'case';
+DEFAULT      : 'default';
+BREAK        : 'break';
+PRINTF       : 'printf';
+PUTS         : 'puts';
+SCANF        : 'scanf';
+GETS         : 'gets';
+EQ           : '==';
+NE           : '!=';
+LT           : '<';
+GT           : '>';
+LE           : '<=';
+GE           : '>=';
+AND          : '&&';
+OR           : '||';
+NOT          : '!';
+PLUS         : '+';
+MINUS        : '-';
+MULT         : '*';
+DIV          : '/';
+AT           : '=';
+SEP          : ',';
+EOL          : ';';
+STR          : '"' (~["\\])* '"';
+NUM          : [0-9]+;
+DECIM        : [0-9]+ '.' [0-9]+;
+VAR          : [a-zA-Z_][a-zA-Z0-9_]*;
+COMMENT_LINE : '//' ~[\r\n]* -> skip;
+COMMENT_BLOCK: '/*' .*? '*/' -> skip;
+WS           : [ \t\n\r]+ -> skip;
