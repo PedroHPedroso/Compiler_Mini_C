@@ -5,7 +5,7 @@ int main() {
     int z = 10;
     
     // Ler valor em 'z'
-    scanf("%d", &z);  // Corrigi o formato da string
+    scanf("%d", &x);  // Corrigi o formato da string
 
     // Imprimir variável e expressão
     printf("%d\n", x);  // Adicionei \n para melhor formatação

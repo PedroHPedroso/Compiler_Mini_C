@@ -10,6 +10,11 @@ public class LangErrorListener extends BaseErrorListener {
 
     private boolean hasErrors = false;
     private final List<String> errorMessages = new ArrayList<>();
+    private final List<String> errors = new ArrayList<>();
+    
+    public List<String> getErrors() {  // ✅ Adicionando o método faltante
+        return errors;
+    }
 
     public boolean hasErrors() {
         return hasErrors;

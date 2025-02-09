@@ -1,59 +1,70 @@
+import java.util.*;
 import org.antlr.v4.runtime.*;
 import org.antlr.v4.runtime.tree.*;
+import grammar.LangParser;
+import grammar.LangLexer;
 import Lang.*;
-import Grammar.LangParser;
-import Grammar.LangLexer;
-import java.util.*;
 
 public class Main {
-    public static void main(String[] args) {
+    public static void main(String[] args) {       
         try {
-            // Carregar o arquivo de entrada
-            String inputFile = "input.lang";
+            String inputFile = "input2.lang";
+            
+            // Carrega o arquivo
             CharStream input = CharStreams.fromFileName(inputFile);
-
-            // Lexer
+            
+            // Inicializa o Lexer
             LangLexer lexer = new LangLexer(input);
             CommonTokenStream tokens = new CommonTokenStream(lexer);
-
-            // Parser
+            
+            // Inicializa o Parser com tratamento de erros personalizado
             LangParser parser = new LangParser(tokens);
             LangErrorListener errorListener = new LangErrorListener();
             parser.removeErrorListeners();
             parser.addErrorListener(errorListener);
 
-            // Árvore de Análise
             ParseTree tree = parser.prog();
-
-            // Verificação de erros sintáticos
+            
+            // Verifica erros sintáticos
             if (errorListener.hasErrors()) {
-                System.out.println("Erros de sintaxe encontrados:");
-                errorListener.getErrorMessages().forEach(System.out::println);
+                System.out.println("\nErros de sintaxe encontrados:");
+                for (String error : errorListener.getErrors()) {
+                    System.out.println("  - " + error);
+                }
                 return;
             }
-
-            // Listener Semântico
             SemanticLangListener semanticListener = new SemanticLangListener();
             ParseTreeWalker walker = new ParseTreeWalker();
             walker.walk(semanticListener, tree);
-
-            // Verificação de erros semânticos
+            
+            // Verifica erros semânticos
             if (semanticListener.hasErrors()) {
-                System.out.println("Erros semânticos encontrados:");
-                semanticListener.getErrorMessages().forEach(System.out::println);
+                System.out.println("\nErros semânticos encontrados:");
+                for (String error : semanticListener.getErrors()) {
+                    System.out.println("  - " + error);
+                }
                 return;
             }
-
-            // Conversão de funções declaradas para o formato esperado pelo interpretador
-            Map<String, ParseTree> convertedFunctions = new HashMap<>();
-            for (Map.Entry<String, LangParser.FunctionContext> entry : semanticListener.getDeclaredFunctions().entrySet()) {
-                convertedFunctions.put(entry.getKey(), entry.getValue());
-            }
-
-            // Interpretador
-            LangInterpreter interpreter = new LangInterpreter(convertedFunctions);
+            LangInterpreter interpreter = new LangInterpreter();
+            
+            // Transfere as informações do Listener para o Interpreter
+            interpreter.functions = semanticListener.declaredFunctions;
+            
+            // Transfere structs e unions com type safety
+            interpreter.structs = new HashMap<>();
+            semanticListener.declaredStructs.forEach((key, value) ->interpreter.structs.put(key, new HashMap<>(value)));
+            
+            interpreter.unions = new HashMap<>();
+            semanticListener.declaredUnions.forEach((key, value) ->interpreter.unions.put(key, new HashMap<>(value)));
+            
+            // Executa o interpretador
+            System.out.println("=== Saída do Programa ===\n");
             interpreter.visit(tree);
+            System.out.println("\n=== Fim da Execução ===");
+            
         } catch (Exception e) {
+            System.err.println("\nErro durante a execução:");
+            System.err.println("  - " + e.getMessage());
             e.printStackTrace();
         }
     }
