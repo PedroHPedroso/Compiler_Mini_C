@@ -17,7 +17,7 @@ O projeto é composto pelos seguintes arquivos principais:
 - `Main.java` - Ponto de entrada do programa, gerencia a execução
 - `input.lang` - Arquivo de entrada contendo código-fonte na linguagem definida
 
-## ⚙️ Como Executar
+## Como Executar
 
 1. **Baixe e instale o ANTLR 4**, caso ainda não tenha:
      
