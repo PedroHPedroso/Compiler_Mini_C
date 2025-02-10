@@ -43,7 +43,7 @@ public class SemanticLangListener extends LangBaseListener {
     public void exitGlobalVariable(LangParser.GlobalVariableContext ctx) {
         if (ctx.DEFINE() != null) {
             String name = ctx.VAR().getText();
-            String value = null; // Alterado de Object para String
+            String value = null;
             if (ctx.expression() != null) {
                 value = ctx.expression().getText();
             }
@@ -73,13 +73,11 @@ public class SemanticLangListener extends LangBaseListener {
         String unionVar = ctx.VAR(0).getText();
         String instanceName = ctx.VAR(1).getText();
         
-        // Verificar se o tipo union existe
         if (!declaredUnions.containsKey(unionVar)) {
             errors.add("Union type not declared: " + unionVar);
             return;
         }
         
-        // Registrar a variável
         declaredVariables.add(instanceName);
         variableTypes.put(instanceName, "union:" + unionVar);
         currentScope.define(instanceName, "union:" + unionVar);
@@ -95,10 +93,8 @@ public class SemanticLangListener extends LangBaseListener {
     }
 
     private void validateScanfFormat(String format, List<TerminalNode> vars) {
-        // Remove as aspas
         format = format.substring(1, format.length() - 1);
         
-        // Conta os especificadores de formato
         int formatCount = 0;
         for (int i = 0; i < format.length(); i++) {
             if (format.charAt(i) == '%') {
@@ -280,12 +276,10 @@ public class SemanticLangListener extends LangBaseListener {
             String varName = expr.VAR().getText();
             String varType = currentScope.resolve(varName);
             
-            // Se for uma union, verifica o tipo do campo atual
             if (varType != null && varType.startsWith("union:")) {
                 String unionName = varType.substring(6);
                 Map<String, String> fields = declaredUnions.get(unionName);
                 if (fields != null) {
-                    // Retorna o tipo do campo ativo
                     return fields.values().iterator().next();
                 }
             }
@@ -370,7 +364,6 @@ public class SemanticLangListener extends LangBaseListener {
         if (expectedType == null || actualType == null) return false;
         if (expectedType.equals(actualType)) return true;
         
-        // Adiciona suporte para unions
         if (expectedType.startsWith("union:") || actualType.startsWith("union:")) {
             String unionType = expectedType.startsWith("union:") ? expectedType : actualType;
             String otherType = expectedType.startsWith("union:") ? actualType : expectedType;
@@ -379,7 +372,6 @@ public class SemanticLangListener extends LangBaseListener {
             Map<String, String> fields = declaredUnions.get(unionName);
             
             if (fields != null) {
-                // Verifica se algum campo da union é compatível com o outro tipo
                 return fields.values().stream().anyMatch(fieldType -> 
                     fieldType.equals(otherType) || isNumericType(fieldType) && isNumericType(otherType)
                 );
@@ -393,7 +385,6 @@ public class SemanticLangListener extends LangBaseListener {
     public void exitFuncinvoc(LangParser.FuncinvocContext ctx) {
         String funcName = ctx.VAR().getText();
         
-        // Check if function exists
         if (!declaredFunctions.containsKey(funcName)) {
             errors.add("Function not declared: " + funcName);
             return;
@@ -404,14 +395,12 @@ public class SemanticLangListener extends LangBaseListener {
         List<LangParser.ExpressionContext> arguments = 
             ctx.argumentos() != null ? ctx.argumentos().expression() : new ArrayList<>();
         
-        // Check number of arguments
         List<TerminalNode> declaredParams = paramsDecl != null ? paramsDecl.VAR() : new ArrayList<>();
         if (declaredParams.size() != arguments.size()) {
             errors.add("Incorrect number of arguments for function: " + funcName);
             return;
         }
         
-        // Check argument types
         if (paramsDecl != null) {
             List<LangParser.TypeSpecContext> paramTypes = paramsDecl.typeSpec();
             for (int i = 0; i < arguments.size(); i++) {
@@ -443,10 +432,8 @@ public class SemanticLangListener extends LangBaseListener {
         
         declaredFunctions.put(funcName, ctx);
         
-        // Create new scope for function
         currentScope = new Scope(currentScope);
         
-        // Add parameters to function scope
         if (ctx.params() != null) {
             List<TerminalNode> params = ctx.params().VAR();
             List<LangParser.TypeSpecContext> types = ctx.params().typeSpec();
@@ -464,7 +451,6 @@ public class SemanticLangListener extends LangBaseListener {
 
     @Override
     public void exitFnBlock(LangParser.FnBlockContext ctx) {
-        // Restore parent scope when exiting function block
         if (currentScope.parent != null) {
             currentScope = currentScope.parent;
         }
@@ -480,7 +466,6 @@ public class SemanticLangListener extends LangBaseListener {
     @Override
     public void exitPreprocessorDirective(LangParser.PreprocessorDirectiveContext ctx) {
         String lib = ctx.LIB().getText();
-        // Remove < and >
         lib = lib.substring(1, lib.length() - 1);
         
         if (includedLibs.contains(lib)) {
@@ -597,19 +582,16 @@ public class SemanticLangListener extends LangBaseListener {
         }
     }
 
-    // Método auxiliar para obter lista de erros
     public List<String> getErrors() {
         return errors;
     }
 
-    // Método auxiliar para verificar se houve erros
     public boolean hasErrors() {
         return !errors.isEmpty();
     }
 
     @Override
     public void exitAtrib(LangParser.AtribContext ctx) {
-        // Handle variable declaration with type
         if (ctx.typeSpec() != null) {
             String varName = ctx.VAR().getText();
             String varType = ctx.typeSpec().getText();
@@ -630,7 +612,6 @@ public class SemanticLangListener extends LangBaseListener {
                 }
             }
         } 
-        // Handle assignment to existing variable
         else {
             String varName = ctx.VAR().getText();
             
@@ -641,12 +622,10 @@ public class SemanticLangListener extends LangBaseListener {
             
             String varType = variableTypes.get(varName);
             
-            // Handle increment/decrement
             if (ctx.getText().contains("++") || ctx.getText().contains("--")) {
                 if (!isNumericType(varType)) {
                     errors.add("Increment/decrement operator requires numeric type: " + varName);             }
             }
-            // Handle compound assignments (+=, -=)
             else if (ctx.expression() != null) {
                 String exprType = getExpressionType(ctx.expression());
                 if (!isCompatibleType(varType, exprType)) {
@@ -658,7 +637,7 @@ public class SemanticLangListener extends LangBaseListener {
 
     @Override
     public void exitExpression(LangParser.ExpressionContext ctx) {
-        if (ctx.VAR() != null) {  // Handle ++/-- in expressions
+        if (ctx.VAR() != null) { 
             String varName = ctx.VAR().getText();
             
             if (!declaredVariables.contains(varName)) {

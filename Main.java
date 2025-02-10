@@ -11,26 +11,21 @@ public class Main {
         try {
             String inputFile = "input.lang";
             
-            // Load file
             CharStream input = CharStreams.fromFileName(inputFile);
             if (input == null) {
                 throw new RuntimeException("Could not read file: " + inputFile);
             }
             
-            // Initialize Lexer
             LangLexer lexer = new LangLexer(input);
             CommonTokenStream tokens = new CommonTokenStream(lexer);
             
-            // Initialize Parser with custom error handling
             LangParser parser = new LangParser(tokens);
             LangErrorListener errorListener = new LangErrorListener();
             parser.removeErrorListeners();
             parser.addErrorListener(errorListener);
             
-            // Generate parse tree
             ParseTree tree = parser.prog();
             
-            // Check for syntax errors
             if (errorListener.hasErrors()) {
                 System.out.println("\nSyntax errors found:");
                 List<String> errorMsgs = errorListener.getErrorMessages();
@@ -42,12 +37,10 @@ public class Main {
                 return;
             }
 
-            // Semantic analysis
             SemanticLangListener semanticListener = new SemanticLangListener();
             ParseTreeWalker walker = new ParseTreeWalker();
             walker.walk(semanticListener, tree);
-            
-            // Check for semantic errors
+
             if (semanticListener.hasErrors()) {
                 System.out.println("\nSemantic errors found:");
                 for (String error : semanticListener.getErrors()) {
@@ -56,13 +49,10 @@ public class Main {
                 return;
             }
             
-            // Create and configure interpreter
             LangInterpreter interpreter = new LangInterpreter();
             
-            // Visit tree to register functions and structures
             interpreter.visit(tree);
             
-            // Execute program starting from main function
             System.out.println("\n=== Execution Start ===\n");
             interpreter.executeProgram();
             System.out.println("\n=== Execution End ===");

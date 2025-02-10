@@ -11,11 +11,10 @@ public class LangInterpreter extends LangBaseVisitor<Object> {
     private Object returnValue = null;
 
     public LangInterpreter() {
-        memoryStack.push(new HashMap<>()); // Cria escopo global
+        memoryStack.push(new HashMap<>());
     }
 
     public void executeProgram() {
-        // Procura e executa a função main
         if (functions.containsKey("main")) {
             executeFunction("main", new ArrayList<>());
         } else {
@@ -56,10 +55,8 @@ public class LangInterpreter extends LangBaseVisitor<Object> {
             throw new RuntimeException("Error: Function '" + functionName + "' not found.");
         }
 
-        // Criar novo escopo para a função
         memoryStack.push(new HashMap<>());
 
-        // Atribuir valores dos argumentos aos parâmetros
         if (functionCtx.params() != null) {
             List<TerminalNode> paramVars = functionCtx.params().VAR();
             for (int i = 0; i < paramVars.size(); i++) {
@@ -67,12 +64,10 @@ public class LangInterpreter extends LangBaseVisitor<Object> {
             }
         }
 
-        // Executar o corpo da função
         returnFlag = false;
         returnValue = null;
         visit(functionCtx.fnBlock());
 
-        // Remover escopo da função
         memoryStack.pop();
         return returnValue;
     }
@@ -110,10 +105,8 @@ public Object visitAtrib(LangParser.AtribContext ctx) {
     Map<String, Object> currentScope = memoryStack.peek();
 
     if (ctx.typeSpec() != null) {
-        // Declaração com possível inicialização
         currentScope.put(varName, ctx.expression() != null ? visit(ctx.expression()) : null);
     } else if (ctx.AT() != null) {
-        // Atribuição simples
         if (!currentScope.containsKey(varName)) {
             throw new RuntimeException("Error: Variable '" + varName + "' not declared.");
         }
@@ -216,9 +209,9 @@ public Object visitAtrib(LangParser.AtribContext ctx) {
     public Object visitArraydecl(LangParser.ArraydeclContext ctx) {
         String arrayName = ctx.VAR().getText();
         int size = Integer.parseInt(ctx.NUM().getText());
-        List<Object> elements = new ArrayList<>(Collections.nCopies(size, null)); // Inicializa com valores nulos
+        List<Object> elements = new ArrayList<>(Collections.nCopies(size, null));
     
-        if (ctx.arrayelems() != null) { // Inicialização com valores fornecidos
+        if (ctx.arrayelems() != null) { 
             List<LangParser.ExpressionContext> exprs = ctx.arrayelems().expression();
             for (int i = 0; i < exprs.size(); i++) {
                 elements.set(i, visit(exprs.get(i)));
@@ -229,12 +222,12 @@ public Object visitAtrib(LangParser.AtribContext ctx) {
         return null;
     }
 
-    private Map<String, String> pointerReferences = new HashMap<>();  // Nome do ponteiro -> Variável apontada
+    private Map<String, String> pointerReferences = new HashMap<>();
 
     @Override
     public Object visitPointerdecl(LangParser.PointerdeclContext ctx) {
         String pointerName = ctx.VAR().getText();
-        pointerReferences.put(pointerName, null);  // Inicializa sem referência
+        pointerReferences.put(pointerName, null);
         return null;
     }
     
@@ -248,7 +241,7 @@ public Object visitAtrib(LangParser.AtribContext ctx) {
             throw new RuntimeException("Error: Variable '" + targetVariable + "' not declared.");
         }
 
-        pointerReferences.put(pointerName, targetVariable); // Ponteiro aponta para a variável
+        pointerReferences.put(pointerName, targetVariable);
         return null;
     }
 
@@ -292,7 +285,6 @@ public Object visitAtrib(LangParser.AtribContext ctx) {
             throw new RuntimeException("Error: Struct '" + structName + "' not declared.");
         }
 
-        // Copia os campos da struct original para a nova instância
         Map<String, Object> instance = new HashMap<>(structs.get(structName));
         memoryStack.peek().put(instanceName, instance);
         return null;
@@ -314,11 +306,11 @@ public Object visitStructaccess(LangParser.StructaccessContext ctx) {
         throw new RuntimeException("Field does not exist in struct: " + fieldName);
     }
 
-    if (ctx.AT() != null) { // Atribuição
+    if (ctx.AT() != null) {
         Object value = visit(ctx.expression());
         instance.put(fieldName, value);
         return null;
-    } else { // Acesso ao valor
+    } else { 
         Object value = instance.get(fieldName);
         return value;
     }
@@ -330,17 +322,17 @@ public Object visitStructaccess(LangParser.StructaccessContext ctx) {
     public Object visitUnionfields(LangParser.UnionfieldsContext ctx) {
         return null;
     }
-    private Map<String, String> unionTypes = new HashMap<>();  // Nome da união -> Tipo do campo armazenado
+    private Map<String, String> unionTypes = new HashMap<>();  
 
     @Override
     public Object visitUniondecl(LangParser.UniondeclContext ctx) {
         String unionName = ctx.VAR().getText();
-        unionTypes.put(unionName, null); // Inicializa sem campo ativo
+        unionTypes.put(unionName, null); 
         return null;
     }
     
 
-    private Map<String, Object> unionInstances = new HashMap<>(); // Nome da união -> Valor armazenado
+    private Map<String, Object> unionInstances = new HashMap<>(); 
 
     @Override
     public Object visitUniondeclaration(LangParser.UniondeclarationContext ctx) {
@@ -351,7 +343,7 @@ public Object visitStructaccess(LangParser.StructaccessContext ctx) {
             throw new RuntimeException("Error: Union '" + unionName + "' not declared.");
         }
     
-        memoryStack.peek().put(instanceName, null); // Inicializa sem valor
+        memoryStack.peek().put(instanceName, null);
         return null;
     }
     
@@ -365,12 +357,12 @@ public Object visitStructaccess(LangParser.StructaccessContext ctx) {
             throw new RuntimeException("Union instance not declared: " + unionInstance);
         }
 
-        if (ctx.AT() != null) { // Atribuição
+        if (ctx.AT() != null) { 
             Object value = visit(ctx.expression());
             currentScope.put(unionInstance, value);
             unionTypes.put(unionInstance, fieldName);
             return null;
-        } else { // Acesso ao valor
+        } else {
             if (!unionTypes.containsKey(unionInstance)) {
                 throw new RuntimeException("Union has no active field: " + unionInstance);
             }
@@ -441,8 +433,7 @@ public Object visitStructaccess(LangParser.StructaccessContext ctx) {
                 Object value = visit(expr);
                 values.add(value);
             }
-            
-            // Remove valores nulos da lista
+
             values.removeIf(v -> v == null);
             
             if (!values.isEmpty()) {
@@ -519,12 +510,10 @@ public Object visitStructaccess(LangParser.StructaccessContext ctx) {
         String varName = ctx.VAR().getText();
         Map<String, Object> currentScope = memoryStack.peek();
         
-        // Verifica se a variável existe no escopo
         if (!currentScope.containsKey(varName)) {
             throw new RuntimeException("Error: Variable '" + varName + "' not declared in switch");
         }
         
-        // Obtém o valor da variável
         Object switchValue = currentScope.get(varName);
         if (switchValue == null) {
             throw new RuntimeException("Error: Variable '" + varName + "' not initialized");
@@ -532,7 +521,6 @@ public Object visitStructaccess(LangParser.StructaccessContext ctx) {
         
         boolean breakEncountered = false;
         
-        // Processa cada caso do switch
         for (LangParser.CaseClauseContext caseCtx : ctx.caseClause()) {
             int caseValue = Integer.parseInt(caseCtx.NUM().getText());
             
@@ -545,7 +533,6 @@ public Object visitStructaccess(LangParser.StructaccessContext ctx) {
             }
         }
         
-        // Se nenhum case foi encontrado e existe default
         if (!breakEncountered && ctx.defaultClause() != null) {
             for (LangParser.LineContext lineCtx : ctx.defaultClause().line()) {
                 visit(lineCtx);
@@ -594,7 +581,6 @@ public Object visitStructaccess(LangParser.StructaccessContext ctx) {
     @Override
     public Object visitCond(LangParser.CondContext ctx) {
         if (ctx.RELOP() != null) {
-            // Primeiro, obtém os valores das expressões
             Object left = visit(ctx.cond(0).expression());
             Object right = visit(ctx.cond(1).expression());
             String op = ctx.RELOP().getText();
@@ -602,8 +588,7 @@ public Object visitStructaccess(LangParser.StructaccessContext ctx) {
             if (left == null || right == null) {
                 throw new RuntimeException("Error: Null value in comparison");
             }
-            
-            // Converte os valores para números se necessário
+
             int l, r;
             if (left instanceof Boolean) {
                 l = ((Boolean)left) ? 1 : 0;
@@ -631,8 +616,7 @@ public Object visitStructaccess(LangParser.StructaccessContext ctx) {
             return result;
         } else if (ctx.expression() != null) {
             Object result = visit(ctx.expression());
-            
-            // Se o resultado for um número, verifica se é diferente de zero
+
             if (result instanceof Integer) {
                 return ((Integer)result) != 0;
             } else if (result instanceof Boolean) {
@@ -655,7 +639,6 @@ public Object visitStructaccess(LangParser.StructaccessContext ctx) {
                     int left = (Integer)result;
                     int right = (Integer)factor;
                     
-                    // Adiciona verificação do operador antes de executar a operação
                     String operator = factorTail.getStart().getText();
                     
                     if (operator.equals("*")) {
