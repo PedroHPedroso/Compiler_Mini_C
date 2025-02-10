@@ -4,14 +4,79 @@ import java.util.*;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 public class LangInterpreter extends LangBaseVisitor<Object> {
-    public Map<String, Object> variables = new HashMap<>();
-    public Map<String, LangParser.FunctionContext> functions = new HashMap<>();
-    public Map<String, Map<String, Object>> structs = new HashMap<>();
-    public Map<String, Map<String, Object>> unions = new HashMap<>();
-    public Map<String, Object> defines = new HashMap<>();
-    public Scanner scanner = new Scanner(System.in);
-    public boolean returnFlag = false;
-    public Object returnValue = null;
+    private Stack<Map<String, Object>> memoryStack = new Stack<>();
+    private Map<String, LangParser.FunctionContext> functions = new HashMap<>();
+    private Map<String, Object> defines = new HashMap<>();
+    private boolean returnFlag = false;
+    private Object returnValue = null;
+
+    public LangInterpreter() {
+        memoryStack.push(new HashMap<>()); // Cria escopo global
+    }
+
+    public void executeProgram() {
+        // Procura e executa a função main
+        if (functions.containsKey("main")) {
+            executeFunction("main", new ArrayList<>());
+        } else {
+            throw new RuntimeException("Error: function main() not found");
+        }
+    }
+
+
+    @Override
+    public Object visitFunction(LangParser.FunctionContext ctx) {
+        String functionName = ctx.VAR() != null ? ctx.VAR().getText() : "main";
+        functions.put(functionName, ctx);
+        return null;
+    }
+
+    @Override
+    public Object visitFuncinvoc(LangParser.FuncinvocContext ctx) {
+        String functionName = ctx.VAR().getText();
+        if (!functions.containsKey(functionName)) {
+            throw new RuntimeException("Error: function '" + functionName + "' not declared.");
+        }
+
+        LangParser.FunctionContext functionCtx = functions.get(functionName);
+        List<Object> args = new ArrayList<>();
+
+        if (ctx.argumentos() != null) {
+            for (LangParser.ExpressionContext expr : ctx.argumentos().expression()) {
+                args.add(visit(expr));
+            }
+        }
+
+        return executeFunction(functionName, args);
+    }
+
+    private Object executeFunction(String functionName, List<Object> args) {
+        LangParser.FunctionContext functionCtx = functions.get(functionName);
+        if (functionCtx == null) {
+            throw new RuntimeException("Error: Function '" + functionName + "' not found.");
+        }
+
+        // Criar novo escopo para a função
+        memoryStack.push(new HashMap<>());
+
+        // Atribuir valores dos argumentos aos parâmetros
+        if (functionCtx.params() != null) {
+            List<TerminalNode> paramVars = functionCtx.params().VAR();
+            for (int i = 0; i < paramVars.size(); i++) {
+                memoryStack.peek().put(paramVars.get(i).getText(), args.get(i));
+            }
+        }
+
+        // Executar o corpo da função
+        returnFlag = false;
+        returnValue = null;
+        visit(functionCtx.fnBlock());
+
+        // Remover escopo da função
+        memoryStack.pop();
+        return returnValue;
+    }
+
 
     @Override
     public Object visitProg(LangParser.ProgContext ctx) {
@@ -23,7 +88,6 @@ public class LangInterpreter extends LangBaseVisitor<Object> {
 
     @Override
     public Object visitPreprocessorDirective(LangParser.PreprocessorDirectiveContext ctx) {
-        // Handle include directives
         return null;
     }
 
@@ -41,11 +105,56 @@ public class LangInterpreter extends LangBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitFunction(LangParser.FunctionContext ctx) {
-        String functionName = ctx.VAR() != null ? ctx.VAR().getText() : "main";
-        functions.put(functionName, ctx);
-        return null;
+public Object visitAtrib(LangParser.AtribContext ctx) {
+    String varName = ctx.VAR().getText();
+    Map<String, Object> currentScope = memoryStack.peek();
+
+    if (ctx.typeSpec() != null) {
+        // Declaração com possível inicialização
+        currentScope.put(varName, ctx.expression() != null ? visit(ctx.expression()) : null);
+    } else if (ctx.AT() != null) {
+        // Atribuição simples
+        if (!currentScope.containsKey(varName)) {
+            throw new RuntimeException("Error: Variable '" + varName + "' not declared.");
+        }
+        currentScope.put(varName, visit(ctx.expression()));
+    } else if (ctx.getText().contains("+=")) {
+        if (!currentScope.containsKey(varName)) {
+            throw new RuntimeException("Error: Variable '" + varName + "' not declared.");
+        }
+        Object value = currentScope.get(varName);
+        Object exprValue = visit(ctx.expression());
+        if (value instanceof Integer && exprValue instanceof Integer) {
+            currentScope.put(varName, (Integer)value + (Integer)exprValue);
+        }
+    } else if (ctx.getText().contains("-=")) {
+        if (!currentScope.containsKey(varName)) {
+            throw new RuntimeException("Error: Variable '" + varName + "' not declared.");
+        }
+        Object value = currentScope.get(varName);
+        Object exprValue = visit(ctx.expression());
+        if (value instanceof Integer && exprValue instanceof Integer) {
+            currentScope.put(varName, (Integer)value - (Integer)exprValue);
+        }
+    } else if (ctx.getText().contains("++")) {
+        if (!currentScope.containsKey(varName)) {
+            throw new RuntimeException("Error: Variable '" + varName + "' not declared.");
+        }
+        Object value = currentScope.get(varName);
+        if (value instanceof Integer) {
+            currentScope.put(varName, (Integer)value + 1);
+        }
+    } else if (ctx.getText().contains("--")) {
+        if (!currentScope.containsKey(varName)) {
+            throw new RuntimeException("Error: Variable '" + varName + "' not declared.");
+        }
+        Object value = currentScope.get(varName);
+        if (value instanceof Integer) {
+            currentScope.put(varName, (Integer)value - 1);
+        }
     }
+    return null;
+}
 
     @Override
     public Object visitFnBlock(LangParser.FnBlockContext ctx) {
@@ -104,241 +213,268 @@ public class LangInterpreter extends LangBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitAtrib(LangParser.AtribContext ctx) {
-        String varName = ctx.VAR().getText();
-        
-        if (ctx.typeSpec() != null) {
-            if (ctx.expression() != null) {
-                variables.put(varName, visit(ctx.expression()));
-            } else {
-                variables.put(varName, null);
-            }
-        } else if (ctx.AT() != null) {
-            variables.put(varName, visit(ctx.expression()));
-        } else if (ctx.getText().contains("++")) {
-            Object value = variables.get(varName);
-            if (value instanceof Integer) {
-                variables.put(varName, (Integer)value + 1);
-            }
-        } else if (ctx.getText().contains("--")) {
-            Object value = variables.get(varName);
-            if (value instanceof Integer) {
-                variables.put(varName, (Integer)value - 1);
-            }
-        } else if (ctx.getText().contains("+=")) {
-            Object value = variables.get(varName);
-            Object exprValue = visit(ctx.expression());
-            if (value instanceof Integer && exprValue instanceof Integer) {
-                variables.put(varName, (Integer)value + (Integer)exprValue);
-            }
-        } else if (ctx.getText().contains("-=")) {
-            Object value = variables.get(varName);
-            Object exprValue = visit(ctx.expression());
-            if (value instanceof Integer && exprValue instanceof Integer) {
-                variables.put(varName, (Integer)value - (Integer)exprValue);
+    public Object visitArraydecl(LangParser.ArraydeclContext ctx) {
+        String arrayName = ctx.VAR().getText();
+        int size = Integer.parseInt(ctx.NUM().getText());
+        List<Object> elements = new ArrayList<>(Collections.nCopies(size, null)); // Inicializa com valores nulos
+    
+        if (ctx.arrayelems() != null) { // Inicialização com valores fornecidos
+            List<LangParser.ExpressionContext> exprs = ctx.arrayelems().expression();
+            for (int i = 0; i < exprs.size(); i++) {
+                elements.set(i, visit(exprs.get(i)));
             }
         }
+    
+        memoryStack.peek().put(arrayName, elements);
         return null;
     }
 
-    @Override
-    public Object visitArraydecl(LangParser.ArraydeclContext ctx) {
-        String varName = ctx.VAR().getText();
-        int size = Integer.parseInt(ctx.NUM().getText());
-        Object[] array = new Object[size];
-        
-        if (ctx.arrayelems() != null) {
-            List<LangParser.ExpressionContext> elems = ctx.arrayelems().expression();
-            for (int i = 0; i < Math.min(size, elems.size()); i++) {
-                array[i] = visit(elems.get(i));
-            }
-        }
-        
-        variables.put(varName, array);
-        return null;
-    }
+    private Map<String, String> pointerReferences = new HashMap<>();  // Nome do ponteiro -> Variável apontada
 
     @Override
     public Object visitPointerdecl(LangParser.PointerdeclContext ctx) {
-        String varName = ctx.VAR().getText();
-        variables.put(varName, null);  // Initialize pointer as null
+        String pointerName = ctx.VAR().getText();
+        pointerReferences.put(pointerName, null);  // Inicializa sem referência
         return null;
     }
+    
 
     @Override
     public Object visitPointerassign(LangParser.PointerassignContext ctx) {
         String pointerName = ctx.VAR(0).getText();
-        String targetName = ctx.VAR(1).getText();
-        variables.put(pointerName, variables.get(targetName));
+        String targetVariable = ctx.VAR(1).getText();
+
+        if (!memoryStack.peek().containsKey(targetVariable)) {
+            throw new RuntimeException("Error: Variable '" + targetVariable + "' not declared.");
+        }
+
+        pointerReferences.put(pointerName, targetVariable); // Ponteiro aponta para a variável
         return null;
     }
 
-// Substituir o método visitPointerdereference por:
+
     @Override
     public Object visitPointerdereference(LangParser.PointerdereferenceContext ctx) {
         String pointerName = ctx.VAR().getText();
-        Object value = visit(ctx.expression());
-        Object pointedValue = variables.get(pointerName);
-        if (pointedValue != null) {
-            variables.put((String)pointedValue, value);
+        
+        if (!pointerReferences.containsKey(pointerName) || pointerReferences.get(pointerName) == null) {
+            throw new RuntimeException("Error: Pointer '" + pointerName + "' is not pointing to any variable.");
         }
+    
+        String targetVariable = pointerReferences.get(pointerName);
+        Object value = visit(ctx.expression());
+        memoryStack.peek().put(targetVariable, value);
         return null;
     }
+    
+
+    private Map<String, Map<String, Object>> structs = new HashMap<>();
+
     @Override
     public Object visitStructdecl(LangParser.StructdeclContext ctx) {
         String structName = ctx.VAR().getText();
-        Map<String, Object> fields = new HashMap<>();
-        
-        if (ctx.structfieldList() != null) {
-            for (LangParser.StructfieldsContext field : ctx.structfieldList().structfields()) {
-                String fieldName = field.VAR().getText();
-                fields.put(fieldName, null);
-            }
+        Map<String, Object> structFields = new HashMap<>();
+    
+        for (LangParser.StructfieldsContext fieldCtx : ctx.structfieldList().structfields()) {
+            structFields.put(fieldCtx.VAR().getText(), null);
         }
-        
-        structs.put(structName, fields);
+    
+        structs.put(structName, structFields);
+        return null;
+    }
+    
+    @Override
+    public Object visitStructdeclaration(LangParser.StructdeclarationContext ctx) {
+        String structName = ctx.VAR(0).getText();
+        String instanceName = ctx.VAR(1).getText();
+
+        if (!structs.containsKey(structName)) {
+            throw new RuntimeException("Error: Struct '" + structName + "' not declared.");
+        }
+
+        // Copia os campos da struct original para a nova instância
+        Map<String, Object> instance = new HashMap<>(structs.get(structName));
+        memoryStack.peek().put(instanceName, instance);
         return null;
     }
 
-    @Override
-    public Object visitStructdeclaration(LangParser.StructdeclarationContext ctx) {
-        String structType = ctx.VAR(0).getText();
-        String varName = ctx.VAR(1).getText();
-        
-        if (structs.containsKey(structType)) {
-            Map<String, Object> newStruct = new HashMap<>(structs.get(structType));
-            variables.put(varName, newStruct);
-        }
-        return null;
+    @SuppressWarnings("unchecked")
+@Override
+public Object visitStructaccess(LangParser.StructaccessContext ctx) {
+    String structInstance = ctx.VAR(0).getText();
+    String fieldName = ctx.VAR(1).getText();
+    
+    Map<String, Object> currentScope = memoryStack.peek();
+    if (!currentScope.containsKey(structInstance)) {
+        throw new RuntimeException("Struct instance not declared: " + structInstance);
     }
+
+    Map<String, Object> instance = (Map<String, Object>) currentScope.get(structInstance);
+    if (!instance.containsKey(fieldName)) {
+        throw new RuntimeException("Field does not exist in struct: " + fieldName);
+    }
+
+    if (ctx.AT() != null) { // Atribuição
+        Object value = visit(ctx.expression());
+        instance.put(fieldName, value);
+        return null;
+    } else { // Acesso ao valor
+        Object value = instance.get(fieldName);
+        return value;
+    }
+}
+
+
 
     @Override 
     public Object visitUnionfields(LangParser.UnionfieldsContext ctx) {
         return null;
     }
+    private Map<String, String> unionTypes = new HashMap<>();  // Nome da união -> Tipo do campo armazenado
 
     @Override
     public Object visitUniondecl(LangParser.UniondeclContext ctx) {
         String unionName = ctx.VAR().getText();
-        Map<String, Object> fields = new HashMap<>();
-        unions.put(unionName, fields);
+        unionTypes.put(unionName, null); // Inicializa sem campo ativo
         return null;
     }
+    
+
+    private Map<String, Object> unionInstances = new HashMap<>(); // Nome da união -> Valor armazenado
 
     @Override
     public Object visitUniondeclaration(LangParser.UniondeclarationContext ctx) {
-        String unionType = ctx.VAR(0).getText();
-        String varName = ctx.VAR(1).getText();
-        
-        if (unions.containsKey(unionType)) {
-            Map<String, Object> newUnion = new HashMap<>();
-            variables.put(varName, newUnion);
+        String unionName = ctx.VAR(0).getText();
+        String instanceName = ctx.VAR(1).getText();
+    
+        if (!unionTypes.containsKey(unionName)) {
+            throw new RuntimeException("Error: Union '" + unionName + "' not declared.");
         }
+    
+        memoryStack.peek().put(instanceName, null); // Inicializa sem valor
         return null;
     }
+    
+    @Override
+    public Object visitUnionaccess(LangParser.UnionaccessContext ctx) {
+        String unionInstance = ctx.VAR(0).getText();
+        String fieldName = ctx.VAR(1).getText();
+        
+        Map<String, Object> currentScope = memoryStack.peek();
+        if (!currentScope.containsKey(unionInstance)) {
+            throw new RuntimeException("Union instance not declared: " + unionInstance);
+        }
+
+        if (ctx.AT() != null) { // Atribuição
+            Object value = visit(ctx.expression());
+            currentScope.put(unionInstance, value);
+            unionTypes.put(unionInstance, fieldName);
+            return null;
+        } else { // Acesso ao valor
+            if (!unionTypes.containsKey(unionInstance)) {
+                throw new RuntimeException("Union has no active field: " + unionInstance);
+            }
+            Object value = currentScope.get(unionInstance);
+            return value;
+        }
+    }
+    
+    private Scanner scanner = new Scanner(System.in);
 
     @Override
     public Object visitInput(LangParser.InputContext ctx) {
         if (ctx.SCAN() != null) {
             String format = ctx.FORMATSTRING().getText().replace("\"", "");
             List<TerminalNode> vars = ctx.VAR();
-
-            // Mostra prompt para o usuário saber o que está sendo pedido
-            System.out.print("Digite os valores (" + format + "): ");
-
-            // Processa cada variável na ordem
+            
             for (int i = 0; i < vars.size(); i++) {
                 String varName = vars.get(i).getText();
+                Map<String, Object> currentScope = memoryStack.peek();
                 
-                // Verifica se a variável foi declarada
-                if (!variables.containsKey(varName)) {
-                    System.err.println("Erro: Variável '" + varName + "' não foi declarada.");
-                    continue;
+                if (!currentScope.containsKey(varName)) {
+                    throw new RuntimeException("Error: Variable '" + varName + "' not declared");
                 }
-
+    
+                System.out.print(">");
+                
                 try {
-                    if (format.contains("%d")) {
-                        variables.put(varName, scanner.nextInt());
+                    if (format.contains("%d") || format.contains("%i")) {
+                        currentScope.put(varName, scanner.nextInt());
                     } else if (format.contains("%f")) {
-                        variables.put(varName, scanner.nextDouble());
+                        currentScope.put(varName, scanner.nextDouble());
                     } else if (format.contains("%s")) {
-                        variables.put(varName, scanner.next());
+                        currentScope.put(varName, scanner.next());
+                    } else if (format.contains("%c")) {
+                        currentScope.put(varName, scanner.next().charAt(0));
                     }
-                    
-                    // Mostra o valor lido
-                    System.out.println(varName + " = " + variables.get(varName));
-                    
-                } catch (Exception e) {
-                    System.err.println("Erro ao ler entrada para '" + varName + "': Entrada inválida.");
-                    scanner.nextLine(); // Limpa o buffer
+                } catch (InputMismatchException e) {
+                    throw new RuntimeException("Error: Invalid input format for variable '" + varName + "'");
                 }
             }
-        }
-
-        if (ctx.GETS() != null) {
-            String varName = ctx.VAR().get(0).getText();
+        } else if (ctx.GETS() != null) {
+            String varName = ctx.VAR(0).getText();
+            Map<String, Object> currentScope = memoryStack.peek();
             
-            if (!variables.containsKey(varName)) {
-                System.err.println("Erro: Variável '" + varName + "' não foi declarada.");
-                return null;
+            if (!currentScope.containsKey(varName)) {
+                throw new RuntimeException("Error: Variable '" + varName + "' not declared");
             }
-
-            System.out.print("Digite um texto para " + varName + ": ");
-            variables.put(varName, scanner.nextLine());
-            
-            // Mostra o valor lido
-            System.out.println(varName + " = " + variables.get(varName));
+    
+            System.out.print("");
+            currentScope.put(varName, scanner.nextLine());
         }
-
         return null;
     }
-        
-    
+
+    public void cleanup() {
+        if (scanner != null) {
+            scanner.close();
+        }
+    }
+
     @Override
     public Object visitOutput(LangParser.OutputContext ctx) {
         if (ctx.PRINT() != null) {
             String format = ctx.FORMATSTRING().getText().replace("\"", "");
             List<Object> values = new ArrayList<>();
             
-            // Coleta e mostra os valores das expressões
             for (LangParser.ExpressionContext expr : ctx.expression()) {
                 Object value = visit(expr);
                 values.add(value);
-                
-                // Mostra cada valor sendo processado
-                System.out.println("Processando valor: " + value);
             }
-
-            try {
-                // Mostra a saída formatada
-                System.out.print("Saída: ");
+            
+            // Remove valores nulos da lista
+            values.removeIf(v -> v == null);
+            
+            if (!values.isEmpty()) {
                 System.out.printf(format, values.toArray());
-                System.out.println(); // Nova linha após a impressão
-                
-            } catch (Exception e) {
-                System.err.println("Erro ao processar PRINTF: " + e.getMessage());
+                System.out.println();
+            } else {
+                System.out.print(format);
+                System.out.println();
             }
-
         } else if (ctx.PUTS() != null) {
             String varName = ctx.VAR().getText();
-            if (variables.containsKey(varName)) {
-                Object value = variables.get(varName);
-                System.out.println("PUTS " + varName + ": " + value);
-            } else {
-                System.err.println("Erro: Variável '" + varName + "' não foi declarada.");
+            Map<String, Object> currentScope = memoryStack.peek();
+            if (!currentScope.containsKey(varName)) {
+                throw new RuntimeException("Variable not declared: " + varName);
+            }
+            Object value = currentScope.get(varName);
+            if (value != null) {
+                System.out.print(value);
+                System.out.println();
             }
         }
         return null;
     }
-        
 
     @Override
     public Object visitIfstmt(LangParser.IfstmtContext ctx) {
-        Boolean condition = (Boolean) visit(ctx.cond());
-        if (condition) {
-            return visit(ctx.fnBlock(0));
+        Object condResult = visit(ctx.cond());
+        
+        if (Boolean.TRUE.equals(condResult)) {
+            visit(ctx.fnBlock(0));
         } else if (ctx.ELSE() != null) {
-            return visit(ctx.fnBlock(1));
+            visit(ctx.fnBlock(1));
         }
         return null;
     }
@@ -347,87 +483,160 @@ public class LangInterpreter extends LangBaseVisitor<Object> {
     public Object visitDowhilestmt(LangParser.DowhilestmtContext ctx) {
         do {
             visit(ctx.fnBlock());
-            if (returnFlag) break;
         } while ((Boolean) visit(ctx.cond()));
         return null;
     }
+    
 
     @Override
     public Object visitWhilestmt(LangParser.WhilestmtContext ctx) {
-        while ((Boolean) visit(ctx.cond())) {
+        while (Boolean.TRUE.equals(visit(ctx.cond()))) {
             visit(ctx.fnBlock());
-            if (returnFlag) break;
         }
         return null;
     }
+    
 
     @Override
     public Object visitForstmt(LangParser.ForstmtContext ctx) {
-        visit(ctx.atrib(0));  // Initialization
-        while ((Boolean) visit(ctx.cond())) {
+        visit(ctx.atrib(0));  // inicialização
+        
+        while (true) {
+            Object condResult = visit(ctx.cond());
+            
+            if (!(condResult instanceof Boolean && (Boolean)condResult)) {
+                break;
+            }
+            
             visit(ctx.fnBlock());
-            if (returnFlag) break;
-            visit(ctx.atrib(1));  // Increment/Update
+            visit(ctx.atrib(1));  // incremento
         }
         return null;
     }
 
     @Override
     public Object visitSwitchstmt(LangParser.SwitchstmtContext ctx) {
-        Object switchValue = variables.get(ctx.VAR().getText());
-        boolean matched = false;
+        String varName = ctx.VAR().getText();
+        Map<String, Object> currentScope = memoryStack.peek();
         
-        if (ctx.caseClause() != null) {
-            for (LangParser.CaseClauseContext caseCtx : ctx.caseClause()) {
-                if (!matched && switchValue.equals(Integer.parseInt(caseCtx.NUM().getText()))) {
-                    matched = true;
-                    for (LangParser.LineContext line : caseCtx.line()) {
-                        visit(line);
-                        if (returnFlag) return null;
+        // Verifica se a variável existe no escopo
+        if (!currentScope.containsKey(varName)) {
+            throw new RuntimeException("Error: Variable '" + varName + "' not declared in switch");
+        }
+        
+        // Obtém o valor da variável
+        Object switchValue = currentScope.get(varName);
+        if (switchValue == null) {
+            throw new RuntimeException("Error: Variable '" + varName + "' not initialized");
+        }
+        
+        boolean breakEncountered = false;
+        
+        // Processa cada caso do switch
+        for (LangParser.CaseClauseContext caseCtx : ctx.caseClause()) {
+            int caseValue = Integer.parseInt(caseCtx.NUM().getText());
+            
+            if (switchValue instanceof Integer && ((Integer)switchValue).intValue() == caseValue) {
+                for (LangParser.LineContext lineCtx : caseCtx.line()) {
+                    visit(lineCtx);
+                }
+                breakEncountered = true;
+                break;
+            }
+        }
+        
+        // Se nenhum case foi encontrado e existe default
+        if (!breakEncountered && ctx.defaultClause() != null) {
+            for (LangParser.LineContext lineCtx : ctx.defaultClause().line()) {
+                visit(lineCtx);
+            }
+        }
+        
+        return null;
+    }
+    
+
+    @Override
+    public Object visitExpression(LangParser.ExpressionContext ctx) {
+        if (ctx.term() != null) {
+            Object result = visit(ctx.term());
+            
+            for (LangParser.TermTailContext termTail : ctx.termTail()) {
+                Object nextTerm = visit(termTail.term());
+                String op = termTail.getStart().getText();
+                
+                if (result instanceof Integer && nextTerm instanceof Integer) {
+                    int left = (Integer)result;
+                    int right = (Integer)nextTerm;
+                    switch (op) {
+                        case "+": result = left + right; break;
+                        case "-": result = left - right; break;
                     }
                 }
             }
-        }
-        
-        if (!matched && ctx.defaultClause() != null) {
-            for (LangParser.LineContext line : ctx.defaultClause().line()) {
-                visit(line);
-                if (returnFlag) return null;
+            return result;
+        } else if (ctx.VAR() != null) {
+            String varName = ctx.VAR().getText();
+            Map<String, Object> currentScope = memoryStack.peek();
+            
+            if (!currentScope.containsKey(varName)) {
+                throw new RuntimeException("Error: Variable '" + varName + "' not declared");
             }
+            
+            Object value = currentScope.get(varName);
+            return value;
+        } else if (ctx.term().factor() != null && ctx.term().factor().structaccess() != null) {
+            return visit(ctx.term().factor().structaccess());
         }
-        
         return null;
     }
 
     @Override
     public Object visitCond(LangParser.CondContext ctx) {
         if (ctx.RELOP() != null) {
-            Object left = visit(ctx.cond(0));
-            Object right = visit(ctx.cond(1));
+            // Primeiro, obtém os valores das expressões
+            Object left = visit(ctx.cond(0).expression());
+            Object right = visit(ctx.cond(1).expression());
             String op = ctx.RELOP().getText();
             
-            if (left instanceof Integer && right instanceof Integer) {
-                int l = (Integer)left;
-                int r = (Integer)right;
-                switch (op) {
-                    case "==": return l == r;
-                    case "!=": return l != r;
-                    case "<": return l < r;
-                    case "<=": return l <= r;
-                    case ">": return l > r;
-                    case ">=": return l >= r;
-                }
+            if (left == null || right == null) {
+                throw new RuntimeException("Error: Null value in comparison");
             }
-        } else if (ctx.AND() != null) {
-            return (Boolean)visit(ctx.cond(0)) && (Boolean)visit(ctx.cond(1));
-        } else if (ctx.OR() != null) {
-            return (Boolean)visit(ctx.cond(0)) || (Boolean)visit(ctx.cond(1));
-        } else if (ctx.NOT() != null) {
-            return !(Boolean)visit(ctx.cond(0));
+            
+            // Converte os valores para números se necessário
+            int l, r;
+            if (left instanceof Boolean) {
+                l = ((Boolean)left) ? 1 : 0;
+            } else {
+                l = left instanceof Integer ? (Integer)left : 0;
+            }
+            
+            if (right instanceof Boolean) {
+                r = ((Boolean)right) ? 1 : 0;
+            } else {
+                r = right instanceof Integer ? (Integer)right : 0;
+            }
+            
+            boolean result;
+            switch (op) {
+                case "!=": result = l != r; break;
+                case "==": result = l == r; break;
+                case "<": result = l < r; break;
+                case "<=": result = l <= r; break;
+                case ">": result = l > r; break;
+                case ">=": result = l >= r; break;
+                default: throw new RuntimeException("Error: Unknown operator: " + op);
+            }
+            
+            return result;
         } else if (ctx.expression() != null) {
             Object result = visit(ctx.expression());
+            
+            // Se o resultado for um número, verifica se é diferente de zero
             if (result instanceof Integer) {
-                return (Integer)result != 0;
+                return ((Integer)result) != 0;
+            } else if (result instanceof Boolean) {
+                return result;
             }
             return result != null;
         }
@@ -435,99 +644,32 @@ public class LangInterpreter extends LangBaseVisitor<Object> {
     }
 
     @Override
-    public Object visitExpression(LangParser.ExpressionContext ctx) {
-        if (ctx.term() != null && !ctx.term().isEmpty()) {
-            Object result = visit(ctx.term());
-            
-            for (int i = 0; i < ctx.termTail().size(); i++) {
-                LangParser.TermContext nextTerm = ctx.term();
-                Object term = visit(nextTerm);
-                String op = ctx.termTail().get(i).getText();
-                
-                if (result instanceof Integer && term instanceof Integer) {
-                    if (op.contains("+")) {
-                        result = (Integer)result + (Integer)term;
-                    } else if (op.contains("-")) {
-                        result = (Integer)result - (Integer)term;
-                    }
-                } else if (result instanceof Double || term instanceof Double) {
-                    double leftVal = (result instanceof Double) ? (Double)result : ((Integer)result).doubleValue();
-                    double rightVal = (term instanceof Double) ? (Double)term : ((Integer)term).doubleValue();
-                    
-                    if (op.contains("+")) {
-                        result = leftVal + rightVal;
-                    } else if (op.contains("-")) {
-                        result = leftVal - rightVal;
-                    }
-                }
-            }
-            return result;
-        }
-        
-        if (ctx.VAR() != null) {
-            String varName = ctx.VAR().getText();
-            if (ctx.getText().contains("++")) {
-                Object value = variables.get(varName);
-                if (value instanceof Integer) {
-                    variables.put(varName, (Integer)value + 1);
-                    return value; // Return original value for post-increment
-                }
-            } else if (ctx.getText().contains("--")) {
-                Object value = variables.get(varName);
-                if (value instanceof Integer) {
-                    variables.put(varName, (Integer)value - 1);
-                    return value; // Return original value for post-decrement
-                }
-            }
-        }
-        return null;
-    }
-
-    @Override
     public Object visitTerm(LangParser.TermContext ctx) {
-        if (ctx.factor() != null && !ctx.factor().isEmpty()) {
+        if (ctx.factor() != null) {
             Object result = visit(ctx.factor());
             
-            for (int i = 0; i < ctx.factorTail().size(); i++) {
-                LangParser.FactorContext nextFactor = ctx.factor();
-                Object factor = visit(nextFactor);
-                String op = ctx.factorTail(i).getText();
+            for (LangParser.FactorTailContext factorTail : ctx.factorTail()) {
+                Object factor = visit(factorTail.factor());
                 
                 if (result instanceof Integer && factor instanceof Integer) {
-                    switch (op) {
-                        case "*":
-                            result = (Integer)result * (Integer)factor;
-                            break;
-                        case "/":
-                            if ((Integer)factor != 0) {
-                                result = (Integer)result / (Integer)factor;
-                            } else {
-                                throw new ArithmeticException("Division by zero");
-                            }
-                            break;
-                        case "%":
-                            if ((Integer)factor != 0) {
-                                result = (Integer)result % (Integer)factor;
-                            } else {
-                                throw new ArithmeticException("Modulo by zero");
-                            }
-                            break;
-                    }
-                } else if (result instanceof Double || factor instanceof Double) {
-                    double leftVal = (result instanceof Double) ? (Double)result : ((Integer)result).doubleValue();
-                    double rightVal = (factor instanceof Double) ? (Double)factor : ((Integer)factor).doubleValue();
+                    int left = (Integer)result;
+                    int right = (Integer)factor;
                     
-                    switch (op) {
-                        case "*":
-                            result = leftVal * rightVal;
-                            break;
-                        case "/":
-                            if (rightVal != 0) {
-                                result = leftVal / rightVal;
-                            } else {
-                                throw new ArithmeticException("Division by zero");
-                            }
-                            break;
+                    // Adiciona verificação do operador antes de executar a operação
+                    String operator = factorTail.getStart().getText();
+                    
+                    if (operator.equals("*")) {
+                        result = left * right;
+                    } else if (operator.equals("/")) {
+                        if (right == 0) {
+                            throw new RuntimeException("Error: Division by zero");
+                        }
+                        result = left / right;
+                    } else if (operator.equals("%")) {
+                        if (right == 0) {
+                            throw new RuntimeException("Error: Modulo by zero");
+                        }
+                        result = left % right;
                     }
                 }
             }
@@ -544,90 +686,21 @@ public class LangInterpreter extends LangBaseVisitor<Object> {
             return Double.parseDouble(ctx.DECIM().getText());
         } else if (ctx.VAR() != null) {
             String varName = ctx.VAR().getText();
-            if (variables.containsKey(varName)) {
-                return variables.get(varName);
+            Map<String, Object> currentScope = memoryStack.peek();
+            
+            if (currentScope.containsKey(varName)) {
+                return currentScope.get(varName);
             } else if (defines.containsKey(varName)) {
                 return defines.get(varName);
             }
-            throw new RuntimeException("Variable not found: " + varName);
+            throw new RuntimeException("Error: Variable '" + varName + "' not found");
         } else if (ctx.expression() != null) {
             return visit(ctx.expression());
+        } else if (ctx.structaccess() != null) {
+            return visit(ctx.structaccess());
+        } else if (ctx.unionaccess() != null) {
+            return visit(ctx.unionaccess());
         }
         return null;
-    }
-
-    @Override
-    public Object visitFuncinvoc(LangParser.FuncinvocContext ctx) {
-        String functionName = ctx.VAR().getText();
-        List<Object> args = new ArrayList<>();
-        
-        if (ctx.argumentos() != null) {
-            for (LangParser.ExpressionContext expr : ctx.argumentos().expression()) {
-                args.add(visit(expr));
-            }
-        }
-        
-        return executeFunction(functionName, args);
-    }
-
-    @Override
-    @SuppressWarnings("unchecked")
-    public Object visitStructaccess(LangParser.StructaccessContext ctx) {
-        String structVar = ctx.VAR(0).getText();
-        String field = ctx.VAR(1).getText();
-        
-        if (variables.containsKey(structVar)) {
-            Map<String, Object> struct = (Map<String, Object>)variables.get(structVar);
-            if (ctx.expression() != null) {
-                struct.put(field, visit(ctx.expression()));
-            }
-            return struct.get(field);
-        }
-        throw new RuntimeException("Struct not found: " + structVar);
-    }
-
-    @Override
-    @SuppressWarnings("unchecked")
-    public Object visitUnionaccess(LangParser.UnionaccessContext ctx) {
-        String unionVar = ctx.VAR(0).getText();
-        String field = ctx.VAR(1).getText();
-        
-        if (variables.containsKey(unionVar)) {
-            Map<String, Object> union = (Map<String, Object>)variables.get(unionVar);
-            if (ctx.expression() != null) {
-                Object value = visit(ctx.expression());
-                union.clear();  // Clear all fields in union
-                union.put(field, value);
-            }
-            return union.get(field);
-        }
-        throw new RuntimeException("Union not found: " + unionVar);
-    }
-
-    public Object executeFunction(String functionName, List<Object> args) {
-        LangParser.FunctionContext functionCtx = functions.get(functionName);
-        if (functionCtx == null) {
-            throw new RuntimeException("Function " + functionName + " not found");
-        }
-
-        Map<String, Object> localVars = new HashMap<>();
-        if (functionCtx.params() != null) {
-            List<TerminalNode> paramVars = functionCtx.params().VAR();
-            for (int i = 0; i < paramVars.size(); i++) {
-                localVars.put(paramVars.get(i).getText(), args.get(i));
-            }
-        }
-
-        Map<String, Object> oldVars = new HashMap<>(variables);
-        variables.putAll(localVars);
-        
-        returnFlag = false;
-        returnValue = null;
-        
-        visit(functionCtx.fnBlock());
-        
-        variables = oldVars;
-        
-        return returnValue;
     }
 }

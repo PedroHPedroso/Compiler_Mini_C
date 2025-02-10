@@ -1,45 +1,79 @@
 #include <stdio.h>
+#define IHC 90;
+
+struct aboba2{
+    int y;
+    float w;
+};
+
+union aboba3{
+    int x;
+    float h;
+};
 
 int main() {
-    int x;
-    int z = 10;
+    int x = 7;
+    int z = 0;
+    int a = x + z;
+    char str;
+
+    struct aboba2 bacate;
+    bacate.y = 5;
+    bacate.w = 5.1;
     
-    // Ler valor em 'z'
-    scanf("%d", &z);  // Corrigi o formato da string
+    union aboba3 bacate2;
+
+    printf("Valor de Y na struct: %d", bacate.y);
+    printf("Valor W: %f", bacate.w);
+
+    scanf("%c", &str);
+
+    printf("Print da variavel STR:")
+    puts(str);
+    /*printf("%c", str);*/
+    
+    // Ler valor em 'x'
+    //scanf("%d", &x);
 
     // Imprimir variável e expressão
-    printf("%d\n", x);  // Adicionei \n para melhor formatação
-    printf("Hello %d\n", x * 2);  // Adicionei \n para melhor formatação
+    printf("Valor da variavel 'a': %d", a); 
+
+
+    scanf("%d", &z);
+    //z = z * 10;
+    printf("%d", z);
+
+    printf("Hello, %d", x * 2); 
 
     // Condicional if/else
-    if (x != 0) {
-        printf("x not zero\n");
+    if (x > 6) {
+        printf("x not zero");
     } 
     else {
-        printf("x is zero\n");
+        printf("x is zero");
     }
 
     // Exemplo de 'for'
-    for (x = 1; x < 5; x++) {  // Usei x++ que é mais idiomático em C
-        printf("%d\n", x);
+    for (x = 0; x <= 5; x++) { 
+        printf("%d", x);
     }
 
     // Exemplo de 'while'
-    while (x < 10) {
-        x++;  // Simplificado usando incremento
-        printf("%d\n", x);
+    while (x <= 10) {
+        printf("%d", x);
+        x++;
     }
 
     // Exemplo de 'switch'
     switch (z) {
         case 1:
-            printf("Case 1\n");
+            printf("Case 1");
             break;
         case 2:
-            printf("Case 2\n");
+            printf("Case 2");
             break;
         default:
-            printf("Default\n");
+            printf("Default");
             break;
     }
 

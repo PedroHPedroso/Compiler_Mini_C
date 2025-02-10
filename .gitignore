@@ -9,3 +9,6 @@ arvoreDer.bat
 genGrammar.bat
 MyTestRig.Java
 test.lang
+LangInterpreter.txt
+SemanticLangListener.txt
+input.lang

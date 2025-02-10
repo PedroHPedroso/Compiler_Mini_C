@@ -182,6 +182,8 @@ factorTail
 factor
   : '(' expression ')'
   | VAR
+  | structaccess
+  | unionaccess
   | NUM
   | DECIM
   ;

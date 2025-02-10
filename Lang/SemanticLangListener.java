@@ -57,7 +57,7 @@ public class SemanticLangListener extends LangBaseListener {
         String varName = ctx.VAR(1).getText();
         
         if (!declaredStructs.containsKey(structType)) {
-            errors.add("Estrutura não declarada: " + structType);
+            errors.add("Structure not declared: " + structType);
             return;
         }
         
@@ -70,17 +70,19 @@ public class SemanticLangListener extends LangBaseListener {
 
     @Override
     public void exitUniondeclaration(LangParser.UniondeclarationContext ctx) {
-        String unionType = ctx.VAR(0).getText();
-        String varName = ctx.VAR(1).getText();
+        String unionVar = ctx.VAR(0).getText();
+        String instanceName = ctx.VAR(1).getText();
         
-        if (!declaredUnions.containsKey(unionType)) {
-            errors.add("União não declarada: " + unionType);
+        // Verificar se o tipo union existe
+        if (!declaredUnions.containsKey(unionVar)) {
+            errors.add("Union type not declared: " + unionVar);
             return;
         }
         
-        currentScope.define(varName, "union:" + unionType);
-        declaredVariables.add(varName);
-        variableTypes.put(varName, "union:" + unionType);
+        // Registrar a variável
+        declaredVariables.add(instanceName);
+        variableTypes.put(instanceName, "union:" + unionVar);
+        currentScope.define(instanceName, "union:" + unionVar);
     }
 
     @Override
@@ -107,7 +109,7 @@ public class SemanticLangListener extends LangBaseListener {
         }
         
         if (formatCount != vars.size()) {
-            errors.add("Número de argumentos não corresponde aos especificadores de formato em scanf");
+            errors.add("Number of arguments does not match format specifiers in scanf");
         }
     }
 
@@ -133,7 +135,7 @@ public class SemanticLangListener extends LangBaseListener {
         }
         
         if (formatCount != expressions.size()) {
-            errors.add("Número de argumentos não corresponde aos especificadores de formato em printf");
+            errors.add("Number of arguments does not match format specifiers in printf");
         }
     }
 
@@ -143,14 +145,14 @@ public class SemanticLangListener extends LangBaseListener {
         String arrayType = ctx.typeSpec().getText();
         
         if (declaredVariables.contains(arrayName)) {
-            errors.add("Array já declarado: " + arrayName);
+            errors.add("Array already declared: " + arrayName);
             return;
         }
         
         try {
             int size = Integer.parseInt(ctx.NUM().getText());
             if (size <= 0) {
-                errors.add("Tamanho do array deve ser positivo: " + arrayName);
+                errors.add("Array size must be positive: " + arrayName);
                 return;
             }
             
@@ -162,7 +164,7 @@ public class SemanticLangListener extends LangBaseListener {
                 validateArrayInitialization(ctx, arrayName, arrayType, size);
             }
         } catch (NumberFormatException e) {
-            errors.add("Tamanho inválido para array: " + arrayName);
+            errors.add("Invalid array size: " + arrayName);
         }
     }
 
@@ -173,14 +175,14 @@ public class SemanticLangListener extends LangBaseListener {
         List<LangParser.ExpressionContext> elements = ctx.arrayelems().expression();
         
         if (elements.size() > size) {
-            errors.add("Inicialização excede o tamanho do array: " + arrayName);
+            errors.add("Initialization exceeds array size: " + arrayName);
             return;
         }
         
         for (LangParser.ExpressionContext element : elements) {
             String elementType = getExpressionType(element);
             if (!isCompatibleType(arrayType, elementType)) {
-                errors.add("Tipo incompatível na inicialização do array " + arrayName);
+                errors.add("Incompatible type in array initialization: " + arrayName);
             }
         }
     }
@@ -191,7 +193,7 @@ public class SemanticLangListener extends LangBaseListener {
         String baseType = ctx.typeSpec().getText();
         
         if (declaredVariables.contains(pointerName)) {
-            errors.add("Ponteiro já declarado: " + pointerName);
+            errors.add("Pointer already declared: " + pointerName);
             return;
         }
         
@@ -206,12 +208,12 @@ public class SemanticLangListener extends LangBaseListener {
         String varName = ctx.VAR(1).getText();
         
         if (!declaredVariables.contains(pointerName)) {
-            errors.add("Ponteiro não declarado: " + pointerName);
+            errors.add("Pointer not declared: " + pointerName);
             return;
         }
         
         if (!declaredVariables.contains(varName)) {
-            errors.add("Variável não declarada: " + varName);
+            errors.add("Variable not declared: " + varName);
             return;
         }
         
@@ -219,13 +221,13 @@ public class SemanticLangListener extends LangBaseListener {
         String varType = variableTypes.get(varName);
         
         if (!pointerType.endsWith("*")) {
-            errors.add("Variável não é um ponteiro: " + pointerName);
+            errors.add("Variable is not a pointer: " + pointerName);
             return;
         }
         
         String baseType = pointerType.substring(0, pointerType.length() - 1);
         if (!baseType.equals(varType)) {
-            errors.add("Tipo incompatível na atribuição de endereço");
+            errors.add("Incompatible type in address assignment");
         }
     }
 
@@ -235,81 +237,120 @@ public class SemanticLangListener extends LangBaseListener {
         String field = ctx.VAR(1).getText();
         
         if (!declaredVariables.contains(structVar)) {
-            errors.add("Variável de estrutura não declarada: " + structVar);
+            errors.add("Struct instance not declared: " + structVar);
             return;
         }
         
         String type = variableTypes.get(structVar);
         if (!type.startsWith("struct:")) {
-            errors.add("Variável não é uma estrutura: " + structVar);
+            errors.add("Variable is not a struct: " + structVar);
             return;
         }
         
         String structType = type.substring(7);
         Map<String, String> fields = declaredStructs.get(structType);
         if (!fields.containsKey(field)) {
-            errors.add("Campo não existe na estrutura: " + field);
+            errors.add("Field does not exist in struct: " + field);
+            return;
+        }
+        
+        if (ctx.expression() != null) {
+            String exprType = getExpressionType(ctx.expression());
+            String fieldType = fields.get(field);
+            if (!isCompatibleType(fieldType, exprType)) {
+                errors.add("Incompatible type in struct field assignment");
+            }
         }
     }
 
     private String getExpressionType(LangParser.ExpressionContext expr) {
         if (expr == null) return "unknown";
         
-        if (expr.term() != null && expr.termTail().isEmpty()) {
-            return getTermType(expr.term());
-        }
-        
-        String leftType = getTermType(expr.term());
-        for (LangParser.TermTailContext tail : expr.termTail()) {
-            String rightType = getTermType(tail.term());
-            if (leftType.equals("unknown") || rightType.equals("unknown")) {
-                return "unknown";
+        if (expr.term() != null) {
+            String termType = getTermType(expr.term());
+            
+            for (LangParser.TermTailContext tail : expr.termTail()) {
+                String nextTermType = getTermType(tail.term());
+                if (isNumericType(termType) && isNumericType(nextTermType)) {
+                    termType = getWidestType(termType, nextTermType);
+                }
             }
-            if (isNumericType(leftType) && isNumericType(rightType)) {
-                leftType = getWidestType(leftType, rightType);
-            } else {
-                return "unknown";
+            return termType;
+        } else if (expr.VAR() != null) {
+            String varName = expr.VAR().getText();
+            String varType = currentScope.resolve(varName);
+            
+            // Se for uma union, verifica o tipo do campo atual
+            if (varType != null && varType.startsWith("union:")) {
+                String unionName = varType.substring(6);
+                Map<String, String> fields = declaredUnions.get(unionName);
+                if (fields != null) {
+                    // Retorna o tipo do campo ativo
+                    return fields.values().iterator().next();
+                }
             }
+            return varType;
         }
-        return leftType;
+        return "unknown";
     }
 
     private String getTermType(LangParser.TermContext term) {
         if (term == null) return "unknown";
         
-        if (term.factor() != null && term.factorTail().isEmpty()) {
-            return getFactorType(term.factor());
-        }
-        
-        String leftType = getFactorType(term.factor());
-        for (LangParser.FactorTailContext tail : term.factorTail()) {
-            String rightType = getFactorType(tail.factor());
-            if (leftType.equals("unknown") || rightType.equals("unknown")) {
-                return "unknown";
+        if (term.factor() != null) {
+            String factorType = getFactorType(term.factor());
+            
+            for (LangParser.FactorTailContext tail : term.factorTail()) {
+                String nextFactorType = getFactorType(tail.factor());
+                
+                if (isNumericType(factorType) && isNumericType(nextFactorType)) {
+                    factorType = getWidestType(factorType, nextFactorType);
+                } else {
+                    return "unknown";
+                }
             }
-            if (isNumericType(leftType) && isNumericType(rightType)) {
-                leftType = getWidestType(leftType, rightType);
-            } else {
-                return "unknown";
-            }
+            return factorType;
         }
-        return leftType;
+        return "unknown";
     }
 
     private String getFactorType(LangParser.FactorContext factor) {
         if (factor == null) return "unknown";
         
-        if (factor.NUM() != null) return "int";
-        if (factor.DECIM() != null) return "float";
-        if (factor.VAR() != null) {
+        if (factor.NUM() != null) {
+            return "int";
+        } else if (factor.DECIM() != null) {
+            return "float";
+        } else if (factor.VAR() != null) {
             String varName = factor.VAR().getText();
-            if (declaredVariables.contains(varName)) {
-                return variableTypes.get(varName);
-            }
-            if (defines.containsKey(varName)) return "int";
-        }
-        if (factor.expression() != null) {
+            String varType = currentScope.resolve(varName);
+            return varType != null ? varType : "unknown";
+        } else if (factor.expression() != null) {
             return getExpressionType(factor.expression());
+        } else if (factor.structaccess() != null) {
+            String structVar = factor.structaccess().VAR(0).getText();
+            String field = factor.structaccess().VAR(1).getText();
+            String structType = variableTypes.get(structVar);
+            
+            if (structType != null && structType.startsWith("struct:")) {
+                String structName = structType.substring(7);
+                Map<String, String> fields = declaredStructs.get(structName);
+                if (fields != null && fields.containsKey(field)) {
+                    return fields.get(field);
+                }
+            }
+        } else if (factor.unionaccess() != null) {
+            String unionVar = factor.unionaccess().VAR(0).getText();
+            String field = factor.unionaccess().VAR(1).getText();
+            String unionType = variableTypes.get(unionVar);
+            
+            if (unionType != null && unionType.startsWith("union:")) {
+                String unionName = unionType.substring(6);
+                Map<String, String> fields = declaredUnions.get(unionName);
+                if (fields != null && fields.containsKey(field)) {
+                    return fields.get(field);
+                }
+            }
         }
         return "unknown";
     }
@@ -329,12 +370,23 @@ public class SemanticLangListener extends LangBaseListener {
         if (expectedType == null || actualType == null) return false;
         if (expectedType.equals(actualType)) return true;
         
-        if (isNumericType(expectedType) && isNumericType(actualType)) {
-            if (expectedType.equals("double")) return true;
-            if (expectedType.equals("float") && actualType.equals("int")) return true;
+        // Adiciona suporte para unions
+        if (expectedType.startsWith("union:") || actualType.startsWith("union:")) {
+            String unionType = expectedType.startsWith("union:") ? expectedType : actualType;
+            String otherType = expectedType.startsWith("union:") ? actualType : expectedType;
+            
+            String unionName = unionType.substring(6);
+            Map<String, String> fields = declaredUnions.get(unionName);
+            
+            if (fields != null) {
+                // Verifica se algum campo da union é compatível com o outro tipo
+                return fields.values().stream().anyMatch(fieldType -> 
+                    fieldType.equals(otherType) || isNumericType(fieldType) && isNumericType(otherType)
+                );
+            }
         }
         
-        return false;
+        return isNumericType(expectedType) && isNumericType(actualType);
     }
 
     @Override
@@ -343,7 +395,7 @@ public class SemanticLangListener extends LangBaseListener {
         
         // Check if function exists
         if (!declaredFunctions.containsKey(funcName)) {
-            errors.add("Função não declarada: " + funcName);
+            errors.add("Function not declared: " + funcName);
             return;
         }
         
@@ -355,7 +407,7 @@ public class SemanticLangListener extends LangBaseListener {
         // Check number of arguments
         List<TerminalNode> declaredParams = paramsDecl != null ? paramsDecl.VAR() : new ArrayList<>();
         if (declaredParams.size() != arguments.size()) {
-            errors.add("Número incorreto de argumentos para a função: " + funcName);
+            errors.add("Incorrect number of arguments for function: " + funcName);
             return;
         }
         
@@ -367,8 +419,8 @@ public class SemanticLangListener extends LangBaseListener {
                 String actualType = getExpressionType(arguments.get(i));
                 
                 if (!isCompatibleType(expectedType, actualType)) {
-                    errors.add("Tipo incompatível no argumento " + (i + 1) + 
-                            " da função " + funcName);
+                    errors.add("Incompatible type in argument " + (i + 1) + 
+                            " of function " + funcName);
                 }
             }
         }
@@ -385,7 +437,7 @@ public class SemanticLangListener extends LangBaseListener {
         }
         
         if (declaredFunctions.containsKey(funcName)) {
-            errors.add("Função já declarada: " + funcName);
+            errors.add("Function already declared: " + funcName);
             return;
         }
         
@@ -410,18 +462,18 @@ public class SemanticLangListener extends LangBaseListener {
         }
     }
 
-        @Override
-        public void exitFnBlock(LangParser.FnBlockContext ctx) {
-            // Restore parent scope when exiting function block
-            if (currentScope.parent != null) {
-                currentScope = currentScope.parent;
-            }
+    @Override
+    public void exitFnBlock(LangParser.FnBlockContext ctx) {
+        // Restore parent scope when exiting function block
+        if (currentScope.parent != null) {
+            currentScope = currentScope.parent;
         }
+    }
 
         @Override
     public void exitProg(LangParser.ProgContext ctx) {
         if (!hasMainFunction) {
-            errors.add("Programa não possui função main");
+            errors.add("Program does not have a main function");
         }
     }
 
@@ -432,7 +484,7 @@ public class SemanticLangListener extends LangBaseListener {
         lib = lib.substring(1, lib.length() - 1);
         
         if (includedLibs.contains(lib)) {
-            errors.add("Biblioteca já incluída: " + lib);
+            errors.add("Library already included: " + lib);
             return;
         }
         
@@ -444,7 +496,7 @@ public class SemanticLangListener extends LangBaseListener {
         String structName = ctx.VAR().getText();
         
         if (declaredStructs.containsKey(structName)) {
-            errors.add("Estrutura já declarada: " + structName);
+            errors.add("Structure already declared: " + structName);
             return;
         }
         
@@ -455,7 +507,7 @@ public class SemanticLangListener extends LangBaseListener {
                 String fieldType = field.typeSpec().getText();
                 
                 if (fields.containsKey(fieldName)) {
-                    errors.add("Campo duplicado na estrutura " + structName + ": " + fieldName);
+                    errors.add("Duplicate field in structure " + structName + ": " + fieldName);
                     continue;
                 }
                 
@@ -471,7 +523,7 @@ public class SemanticLangListener extends LangBaseListener {
         String unionName = ctx.VAR().getText();
         
         if (declaredUnions.containsKey(unionName)) {
-            errors.add("União já declarada: " + unionName);
+            errors.add("Union already declared: " + unionName);
             return;
         }
         
@@ -480,12 +532,6 @@ public class SemanticLangListener extends LangBaseListener {
             for (LangParser.UnionfieldsContext field : ctx.unionfieldList().unionfields()) {
                 String fieldName = field.VAR().getText();
                 String fieldType = field.typeSpec().getText();
-                
-                if (fields.containsKey(fieldName)) {
-                    errors.add("Campo duplicado na união " + unionName + ": " + fieldName);
-                    continue;
-                }
-                
                 fields.put(fieldName, fieldType);
             }
         }
@@ -499,28 +545,31 @@ public class SemanticLangListener extends LangBaseListener {
         String field = ctx.VAR(1).getText();
         
         if (!declaredVariables.contains(unionVar)) {
-            errors.add("Variável de união não declarada: " + unionVar);
+            errors.add("Union instance not declared: " + unionVar);
             return;
         }
         
         String type = variableTypes.get(unionVar);
-        if (!type.startsWith("union:")) {
-            errors.add("Variável não é uma união: " + unionVar);
+        
+        if (type == null || !type.startsWith("union:")) {
+            errors.add("Variable is not a union: " + unionVar);
             return;
         }
         
         String unionType = type.substring(6);
         Map<String, String> fields = declaredUnions.get(unionType);
-        if (!fields.containsKey(field)) {
-            errors.add("Campo não existe na união: " + field);
+        
+        if (fields == null || !fields.containsKey(field)) {
+            errors.add("Field does not exist in union: " + field);
             return;
         }
         
         if (ctx.expression() != null) {
             String exprType = getExpressionType(ctx.expression());
             String fieldType = fields.get(field);
+            
             if (!isCompatibleType(fieldType, exprType)) {
-                errors.add("Tipo incompatível na atribuição do campo da união");
+                errors.add("Incompatible type in union field assignment");
             }
         }
     }
@@ -530,20 +579,20 @@ public class SemanticLangListener extends LangBaseListener {
         String varName = ctx.VAR().getText();
         
         if (!declaredVariables.contains(varName)) {
-            errors.add("Variável não declarada no switch: " + varName);
+            errors.add("Variable not declared in switch: " + varName);
             return;
         }
         
         String varType = variableTypes.get(varName);
         if (!varType.equals("int") && !varType.equals("char")) {
-            errors.add("Switch requer variável do tipo int ou char");
+            errors.add("Switch requires int or char variable");
         }
         
         Set<String> caseValues = new HashSet<>();
         for (LangParser.CaseClauseContext caseCtx : ctx.caseClause()) {
             String caseValue = caseCtx.NUM().getText();
             if (!caseValues.add(caseValue)) {
-                errors.add("Valor de case duplicado: " + caseValue);
+                errors.add("Duplicate case value: " + caseValue);
             }
         }
     }
@@ -566,7 +615,7 @@ public class SemanticLangListener extends LangBaseListener {
             String varType = ctx.typeSpec().getText();
             
             if (declaredVariables.contains(varName)) {
-                errors.add("Variável já declarada: " + varName);
+                errors.add("Variable already declared: " + varName);
                 return;
             }
             
@@ -577,7 +626,7 @@ public class SemanticLangListener extends LangBaseListener {
             if (ctx.expression() != null) {
                 String exprType = getExpressionType(ctx.expression());
                 if (!isCompatibleType(varType, exprType)) {
-                    errors.add("Tipo incompatível na inicialização da variável: " + varName);
+                    errors.add("Incompatible type in variable initialization: " + varName);
                 }
             }
         } 
@@ -586,7 +635,7 @@ public class SemanticLangListener extends LangBaseListener {
             String varName = ctx.VAR().getText();
             
             if (!declaredVariables.contains(varName)) {
-                errors.add("Variável não declarada: " + varName);
+                errors.add("Variable not declared: " + varName);
                 return;
             }
             
@@ -595,13 +644,13 @@ public class SemanticLangListener extends LangBaseListener {
             // Handle increment/decrement
             if (ctx.getText().contains("++") || ctx.getText().contains("--")) {
                 if (!isNumericType(varType)) {
-                    errors.add("Operador de incremento/decremento requer tipo numérico: " + varName);             }
+                    errors.add("Increment/decrement operator requires numeric type: " + varName);             }
             }
             // Handle compound assignments (+=, -=)
             else if (ctx.expression() != null) {
                 String exprType = getExpressionType(ctx.expression());
                 if (!isCompatibleType(varType, exprType)) {
-                    errors.add("Tipo incompatível na atribuição: " + varName);
+                    errors.add("Incompatible type in assignment: " + varName);
                 }
             }
         }
@@ -613,13 +662,13 @@ public class SemanticLangListener extends LangBaseListener {
             String varName = ctx.VAR().getText();
             
             if (!declaredVariables.contains(varName)) {
-                errors.add("Variável não declarada: " + varName);
+                errors.add("Variable not declared: " + varName);
                 return;
             }
             
             String varType = variableTypes.get(varName);
             if (!isNumericType(varType)) {
-                errors.add("Operador de incremento/decremento requer tipo numérico: " + varName);
+                errors.add("Increment/decrement operator requires numeric type: " + varName);
             }
         }
     }
@@ -631,7 +680,7 @@ public class SemanticLangListener extends LangBaseListener {
             String rightType = getCondType(ctx.cond(1));
             
             if (!isCompatibleType(leftType, rightType)) {
-                errors.add("Tipos incompatíveis na comparação");
+                errors.add("Incompatible types in comparison");
             }
         }
     }
@@ -661,7 +710,7 @@ public class SemanticLangListener extends LangBaseListener {
     private void validateCondition(LangParser.CondContext ctx) {
         String condType = getCondType(ctx);
         if (ctx.expression() != null && !isNumericType(condType) && !condType.equals("boolean")) {
-            errors.add("Condição deve ser numérica ou booleana");
+            errors.add("Condition must be numeric or boolean");
         }
     }
 }
