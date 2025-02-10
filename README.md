@@ -2,12 +2,12 @@
 
 Este projeto implementa um interpretador para a linguagem C utilizando ANTLR para análise léxica e sintática. O interpretador executa código escrito na linguagem definida no arquivo de gramática `Lang.g4`.
 
-## 📌 Tecnologias Utilizadas
+## Tecnologias Utilizadas
 
 - **Java** - Linguagem principal do projeto
 - **ANTLR 4** - Para análise léxica e sintática
 
-## 📜 Estrutura do Projeto
+## Estrutura do Projeto
 
 O projeto é composto pelos seguintes arquivos principais:
 
@@ -23,12 +23,12 @@ O projeto é composto pelos seguintes arquivos principais:
      
 2. **Execute o interpretador**:
    ```sh
-   .\run.bat input.lang
+   ./run.bat input.lang
    ```
 
 O interpretador irá processar o arquivo `input.lang`, verificar erros sintáticos e semânticos, e então executar o código.
 
-## 🚀 Exemplo de Código (`input.lang`)
+## Exemplo de Código (`input.lang`)
 
 ```c
 #include <stdio.h>
@@ -144,7 +144,7 @@ Default
 === Execution End ===
 ```
 
-## 🛠 Exemplo de Funcionalidades Implementadas
+## Exemplo de Funcionalidades Implementadas
 
 * Suporte a variáveis e operadores aritméticos
 * Controle de fluxo (`if`, `while`, `for`, `switch`)
@@ -153,7 +153,7 @@ Default
 * Gerenciamento de funções e escopos
 * Ponteiros e arrays
 
-## ⚠️ Erros e Validações
+## Erros e Validações
 
 O projeto contém verificações para erros comuns como:
 * Uso de variáveis não declaradas
