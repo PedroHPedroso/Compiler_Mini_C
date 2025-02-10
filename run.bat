@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 
-set ANTLR_JAR=C:\Users\pedro\Downloads\antlr-4.13.2-complete.jar
+set ANTLR_JAR=C:\Users\user\Downloads\antlr-4.13.2-complete.jar
 
 echo ==========================================================
 echo [INFO] Compiling Java files...
