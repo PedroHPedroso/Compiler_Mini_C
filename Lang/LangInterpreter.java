@@ -35,7 +35,7 @@ public class LangInterpreter extends LangBaseVisitor<Object> {
         String functionName = ctx.VAR().getText();
         List<Object> args = new ArrayList<>();
         
-        // Collect arguments
+        
         if (ctx.argumentos() != null) {
             for (LangParser.ExpressionContext exprCtx : ctx.argumentos().expression()) {
                 Object argValue = visit(exprCtx);
@@ -43,7 +43,7 @@ public class LangInterpreter extends LangBaseVisitor<Object> {
             }
         }
         
-        // Execute function and return its result
+       
         Object result = executeFunction(functionName, args);
         return result;
     }
@@ -54,15 +54,14 @@ public class LangInterpreter extends LangBaseVisitor<Object> {
             throw new RuntimeException("Error: function " + functionName + " not found");
         }
 
-        // Create new scope
         Map<String, Object> functionScope = new HashMap<>();
         memoryStack.push(functionScope);
 
-        // Reset return flags
+       
         returnFlag = false;
         returnValue = null;
 
-        // Add parameters to scope
+        
         if (funcCtx.params() != null) {
             List<TerminalNode> params = funcCtx.params().VAR();
             for (int i = 0; i < Math.min(params.size(), args.size()); i++) {
@@ -70,13 +69,13 @@ public class LangInterpreter extends LangBaseVisitor<Object> {
             }
         }
 
-        // Execute function body
+       
         visit(funcCtx.fnBlock());
 
-        // Get return value before cleanup
+        
         Object result = returnValue;
 
-        // Reset flags and restore scope
+        
         returnFlag = false;
         returnValue = null;
         memoryStack.pop();
@@ -90,9 +89,9 @@ public class LangInterpreter extends LangBaseVisitor<Object> {
         Map<String, Object> currentScope = memoryStack.peek();
 
         if (ctx.typeSpec() != null) {
-            // Declaration with initialization
+            
             if (ctx.funcinvoc() != null) {
-                // Function call assignment
+               
                 Object result = visit(ctx.funcinvoc());
                 currentScope.put(varName, result);
                 return null;
@@ -101,12 +100,12 @@ public class LangInterpreter extends LangBaseVisitor<Object> {
                 currentScope.put(varName, value);
                 return null;
             } else {
-                // Simple declaration without initialization
+                
                 currentScope.put(varName, null);
                 return null;
             }
         } else if (ctx.AT() != null) {
-            // Assignment with expression or function call
+            
             if (!currentScope.containsKey(varName)) {
                 throw new RuntimeException("Error: Variable '" + varName + "' not declared.");
             }
@@ -243,7 +242,6 @@ public class LangInterpreter extends LangBaseVisitor<Object> {
         }
         throw new RuntimeException("Error: Variable '" + varName + "' not declared");
     } else if (ctx.funcinvoc() != null) {
-        // Add this case to handle function calls in expressions
         return visit(ctx.funcinvoc());
     } else if (ctx.expression() != null) {
         return visit(ctx.expression());

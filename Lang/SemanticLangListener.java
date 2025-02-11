@@ -262,24 +262,24 @@ public class SemanticLangListener extends LangBaseListener {
 
     private String getExpressionType(LangParser.ExpressionContext expr) {
         if (expr == null) {
-            System.out.println("DEBUG: Expression is null");
+           
             return "unknown";
         }
         
         // Primeiro, verifica se é uma chamada de função através do termo
         if (expr.term() != null) {
             String termType = getTermType(expr.term());
-            System.out.println("DEBUG: Initial term type: " + termType);
+           
             
             if (!expr.termTail().isEmpty()) {
                 for (LangParser.TermTailContext tail : expr.termTail()) {
                     String nextTermType = getTermType(tail.term());
-                    System.out.println("DEBUG: Next term type: " + nextTermType);
+                    
                     
                     if (isNumericType(termType) && isNumericType(nextTermType)) {
                         String oldType = termType;
                         termType = getWidestType(termType, nextTermType);
-                        System.out.println("DEBUG: Type widening from " + oldType + " to " + termType);
+                       
                     }
                 }
             }
@@ -289,10 +289,10 @@ public class SemanticLangListener extends LangBaseListener {
         // Verifica variável
         if (expr.VAR() != null) {
             String varName = expr.VAR().getText();
-            System.out.println("DEBUG: Looking up variable: " + varName);
+            
             
             String varType = currentScope.resolve(varName);
-            System.out.println("DEBUG: Variable type from scope: " + varType);
+           
             
             if (varType != null) {
                 return varType;
@@ -308,12 +308,12 @@ public class SemanticLangListener extends LangBaseListener {
     
     String factorType = getFactorType(term.factor());
     
-    // For terms with operators (*, /)
+    
     if (!term.factorTail().isEmpty()) {
         for (LangParser.FactorTailContext tail : term.factorTail()) {
             String nextFactorType = getFactorType(tail.factor());
             if (isNumericType(factorType) && isNumericType(nextFactorType)) {
-                // For arithmetic operations between int types, result is int
+               
                 if (factorType.equals("int") && nextFactorType.equals("int")) {
                     factorType = "int";
                 } else {
@@ -331,23 +331,23 @@ public class SemanticLangListener extends LangBaseListener {
     // Ajuste também o método getFactorType para lidar melhor com chamadas de função
     private String getFactorType(LangParser.FactorContext factor) {
         if (factor == null) {
-            System.out.println("DEBUG: Factor is null");
+           
             return "unknown";
         }
         
         if (factor.NUM() != null) {
-            System.out.println("DEBUG: Factor is numeric literal");
+           
             return "int";
         } else if (factor.DECIM() != null) {
-            System.out.println("DEBUG: Factor is decimal literal");
+           
             return "float";
         } else if (factor.VAR() != null) {
             String varName = factor.VAR().getText();
-            System.out.println("DEBUG: Factor is variable: " + varName);
+           
             
             String varType = currentScope.resolve(varName);
             if (varType != null) {
-                System.out.println("DEBUG: Found variable type in scope: " + varType);
+               
                 return varType;
             }
             return variableTypes.getOrDefault(varName, "unknown");
@@ -355,12 +355,12 @@ public class SemanticLangListener extends LangBaseListener {
             return getExpressionType(factor.expression());
         } else if (factor.funcinvoc() != null) {
             String funcName = factor.funcinvoc().VAR().getText();
-            System.out.println("DEBUG: Factor is function call: " + funcName);
+            
             
             if (declaredFunctions.containsKey(funcName)) {
                 LangParser.FunctionContext funcCtx = declaredFunctions.get(funcName);
                 String returnType = funcCtx.typeSpec() != null ? funcCtx.typeSpec().getText() : "int";
-                System.out.println("DEBUG: Function return type: " + returnType);
+               
                 return returnType;
             }
         }
@@ -384,26 +384,23 @@ public class SemanticLangListener extends LangBaseListener {
     }
 
    private boolean isCompatibleType(String expectedType, String actualType) {
-    System.out.println("DEBUG: Checking type compatibility:");
-    System.out.println("      Expected: " + expectedType);
-    System.out.println("      Actual: " + actualType);
     
     if (expectedType == null || actualType == null) {
-        System.out.println("DEBUG: Null type detected");
+        
         return false;
     }
     
     if (expectedType.equals(actualType)) {
-        System.out.println("DEBUG: Exact type match");
+       
         return true;
     }
     
     if (isNumericType(expectedType) && isNumericType(actualType)) {
-        System.out.println("DEBUG: Both types are numeric");
+        
         return true;
     }
     
-    System.out.println("DEBUG: Types are not compatible");
+    
     return false;
 }
 
@@ -411,7 +408,7 @@ public class SemanticLangListener extends LangBaseListener {
     public void exitFuncinvoc(LangParser.FuncinvocContext ctx) {
         String funcName = ctx.VAR().getText();
         
-        // Check if function exists
+        
         if (!declaredFunctions.containsKey(funcName)) {
             errors.add("Function not declared: " + funcName);
             return;
@@ -420,22 +417,21 @@ public class SemanticLangListener extends LangBaseListener {
         LangParser.FunctionContext funcDecl = declaredFunctions.get(funcName);
         String expectedType = funcDecl.typeSpec() != null ? funcDecl.typeSpec().getText() : "int";
         
-        // Get arguments
+        
         List<LangParser.ExpressionContext> arguments = 
             ctx.argumentos() != null ? ctx.argumentos().expression() : new ArrayList<>();
         
-        // Check parameters
         if (funcDecl.params() != null) {
             List<TerminalNode> params = funcDecl.params().VAR();
             List<LangParser.TypeSpecContext> paramTypes = funcDecl.params().typeSpec();
             
-            // Check number of arguments
+           
             if (params.size() != arguments.size()) {
                 errors.add("Incorrect number of arguments in call to function: " + funcName);
                 return;
             }
             
-            // Check argument types
+          
             for (int i = 0; i < arguments.size(); i++) {
                 String paramType = paramTypes.get(i).getText();
                 String argType = getExpressionType(arguments.get(i));
@@ -452,12 +448,12 @@ public class SemanticLangListener extends LangBaseListener {
 
     @Override
     public void enterFunction(LangParser.FunctionContext ctx) {
-        // Create new scope BEFORE processing any part of the function
+        
         Scope functionScope = new Scope(currentScope);
         scopeStack.push(currentScope);
         currentScope = functionScope;
 
-        // Add parameters to scope immediately
+        
         if (ctx.params() != null) {
             List<TerminalNode> params = ctx.params().VAR();
             List<LangParser.TypeSpecContext> types = ctx.params().typeSpec();
@@ -466,7 +462,7 @@ public class SemanticLangListener extends LangBaseListener {
                 String paramName = params.get(i).getText();
                 String paramType = types.get(i).getText();
                 
-                System.out.println("DEBUG: Adding parameter to function scope: " + paramName + " : " + paramType);
+               
                 currentScope.define(paramName, paramType);
                 declaredVariables.add(paramName);
                 variableTypes.put(paramName, paramType);
@@ -493,7 +489,7 @@ public class SemanticLangListener extends LangBaseListener {
 
     @Override
     public void exitFnBlock(LangParser.FnBlockContext ctx) {
-        // Restore previous scope
+      
         if (!scopeStack.isEmpty()) {
             currentScope = scopeStack.pop();
         }
@@ -509,7 +505,7 @@ public class SemanticLangListener extends LangBaseListener {
     @Override
     public void exitPreprocessorDirective(LangParser.PreprocessorDirectiveContext ctx) {
         String lib = ctx.LIB().getText();
-        // Remove < and >
+       
         lib = lib.substring(1, lib.length() - 1);
         
         if (includedLibs.contains(lib)) {
@@ -639,13 +635,10 @@ public class SemanticLangListener extends LangBaseListener {
     @Override
     public void exitAtrib(LangParser.AtribContext ctx) {
         String varName = ctx.VAR().getText();
-        System.out.println("DEBUG: Processing variable: " + varName);
         
         if (ctx.typeSpec() != null) {
             String varType = ctx.typeSpec().getText();
-            System.out.println("DEBUG: Variable type declaration: " + varType);
-            
-            // Verifica se a variável já existe no escopo atual
+           
             if (currentScope.resolve(varName) != null) {
                 errors.add("Variable already declared: " + varName);
                 return;
@@ -654,8 +647,7 @@ public class SemanticLangListener extends LangBaseListener {
             // Caso especial: atribuição de função
             if (ctx.funcinvoc() != null) {
                 String funcName = ctx.funcinvoc().VAR().getText();
-                System.out.println("DEBUG: Function assignment from: " + funcName);
-                
+               
                 if (!declaredFunctions.containsKey(funcName)) {
                     errors.add("Function not declared: " + funcName);
                     return;
@@ -664,8 +656,7 @@ public class SemanticLangListener extends LangBaseListener {
                 LangParser.FunctionContext funcCtx = declaredFunctions.get(funcName);
                 String funcReturnType = funcCtx.typeSpec() != null ? funcCtx.typeSpec().getText() : "int";
                 
-                System.out.println("DEBUG: Function return type: " + funcReturnType);
-                System.out.println("DEBUG: Variable type: " + varType);
+                
                 
                 if (!isCompatibleType(varType, funcReturnType)) {
                     errors.add("Cannot assign function of type '" + funcReturnType + 
@@ -685,10 +676,8 @@ public class SemanticLangListener extends LangBaseListener {
             // Verificação de expressão normal
             if (ctx.expression() != null) {
                 String exprType = getExpressionType(ctx.expression());
-                System.out.println("DEBUG: Expression type: " + exprType);
                 
                 if (!isCompatibleType(varType, exprType)) {
-                    System.out.println("DEBUG: Type mismatch error");
                     errors.add("Incompatible type in variable initialization: " + varName);
                     return;
                 }
