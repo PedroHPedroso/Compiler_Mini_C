@@ -21,7 +21,7 @@ globalVariable
 
 
 function
-  : typeSpec VAR '(' params ')' fnBlock
+  : typeSpec VAR '(' params? ')' fnBlock
   | typeSpec MAIN '(' ')' fnBlock
   ;
 
@@ -40,7 +40,6 @@ fnBodyItem
 
 params
   : typeSpec VAR (SEP typeSpec VAR)* 
-  |
   ;
 
 line
@@ -71,6 +70,7 @@ stmt
 
 atrib
   : typeSpec VAR (AT expression)?
+  | typeSpec VAR AT funcinvoc
   | VAR AT expression
   | VAR '++'
   | VAR '--'
@@ -186,6 +186,7 @@ factor
   | unionaccess
   | NUM
   | DECIM
+  | funcinvoc
   ;
 
 structdecl

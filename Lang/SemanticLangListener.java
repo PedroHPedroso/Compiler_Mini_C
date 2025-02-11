@@ -14,15 +14,12 @@ public class SemanticLangListener extends LangBaseListener {
     public final Map<String, Object> defines = new HashMap<>();
     public final Set<String> includedLibs = new HashSet<>();
     public boolean hasMainFunction = false;
-    public Scope currentScope = new Scope();
+    private Stack<Scope> scopeStack = new Stack<>();
+    private Scope currentScope = new Scope(null);
 
     private class Scope {
         private final Map<String, String> variables = new HashMap<>();
         private final Scope parent;
-        
-        public Scope() {
-            this.parent = null;
-        }
         
         public Scope(Scope parent) {
             this.parent = parent;
@@ -43,7 +40,7 @@ public class SemanticLangListener extends LangBaseListener {
     public void exitGlobalVariable(LangParser.GlobalVariableContext ctx) {
         if (ctx.DEFINE() != null) {
             String name = ctx.VAR().getText();
-            String value = null;
+            String value = null; // Alterado de Object para String
             if (ctx.expression() != null) {
                 value = ctx.expression().getText();
             }
@@ -73,11 +70,13 @@ public class SemanticLangListener extends LangBaseListener {
         String unionVar = ctx.VAR(0).getText();
         String instanceName = ctx.VAR(1).getText();
         
+        // Verificar se o tipo union existe
         if (!declaredUnions.containsKey(unionVar)) {
             errors.add("Union type not declared: " + unionVar);
             return;
         }
         
+        // Registrar a variável
         declaredVariables.add(instanceName);
         variableTypes.put(instanceName, "union:" + unionVar);
         currentScope.define(instanceName, "union:" + unionVar);
@@ -93,8 +92,10 @@ public class SemanticLangListener extends LangBaseListener {
     }
 
     private void validateScanfFormat(String format, List<TerminalNode> vars) {
+        // Remove as aspas
         format = format.substring(1, format.length() - 1);
         
+        // Conta os especificadores de formato
         int formatCount = 0;
         for (int i = 0; i < format.length(); i++) {
             if (format.charAt(i) == '%') {
@@ -260,99 +261,121 @@ public class SemanticLangListener extends LangBaseListener {
     }
 
     private String getExpressionType(LangParser.ExpressionContext expr) {
-        if (expr == null) return "unknown";
+        if (expr == null) {
+            System.out.println("DEBUG: Expression is null");
+            return "unknown";
+        }
         
+        // Primeiro, verifica se é uma chamada de função através do termo
         if (expr.term() != null) {
             String termType = getTermType(expr.term());
+            System.out.println("DEBUG: Initial term type: " + termType);
             
-            for (LangParser.TermTailContext tail : expr.termTail()) {
-                String nextTermType = getTermType(tail.term());
-                if (isNumericType(termType) && isNumericType(nextTermType)) {
-                    termType = getWidestType(termType, nextTermType);
+            if (!expr.termTail().isEmpty()) {
+                for (LangParser.TermTailContext tail : expr.termTail()) {
+                    String nextTermType = getTermType(tail.term());
+                    System.out.println("DEBUG: Next term type: " + nextTermType);
+                    
+                    if (isNumericType(termType) && isNumericType(nextTermType)) {
+                        String oldType = termType;
+                        termType = getWidestType(termType, nextTermType);
+                        System.out.println("DEBUG: Type widening from " + oldType + " to " + termType);
+                    }
                 }
             }
             return termType;
-        } else if (expr.VAR() != null) {
-            String varName = expr.VAR().getText();
-            String varType = currentScope.resolve(varName);
-            
-            if (varType != null && varType.startsWith("union:")) {
-                String unionName = varType.substring(6);
-                Map<String, String> fields = declaredUnions.get(unionName);
-                if (fields != null) {
-                    return fields.values().iterator().next();
-                }
-            }
-            return varType;
         }
+        
+        // Verifica variável
+        if (expr.VAR() != null) {
+            String varName = expr.VAR().getText();
+            System.out.println("DEBUG: Looking up variable: " + varName);
+            
+            String varType = currentScope.resolve(varName);
+            System.out.println("DEBUG: Variable type from scope: " + varType);
+            
+            if (varType != null) {
+                return varType;
+            }
+            return variableTypes.getOrDefault(varName, "unknown");
+        }
+        
         return "unknown";
     }
 
     private String getTermType(LangParser.TermContext term) {
-        if (term == null) return "unknown";
-        
-        if (term.factor() != null) {
-            String factorType = getFactorType(term.factor());
-            
-            for (LangParser.FactorTailContext tail : term.factorTail()) {
-                String nextFactorType = getFactorType(tail.factor());
-                
-                if (isNumericType(factorType) && isNumericType(nextFactorType)) {
-                    factorType = getWidestType(factorType, nextFactorType);
+    if (term == null) return "unknown";
+    
+    String factorType = getFactorType(term.factor());
+    
+    // For terms with operators (*, /)
+    if (!term.factorTail().isEmpty()) {
+        for (LangParser.FactorTailContext tail : term.factorTail()) {
+            String nextFactorType = getFactorType(tail.factor());
+            if (isNumericType(factorType) && isNumericType(nextFactorType)) {
+                // For arithmetic operations between int types, result is int
+                if (factorType.equals("int") && nextFactorType.equals("int")) {
+                    factorType = "int";
                 } else {
-                    return "unknown";
+                    factorType = getWidestType(factorType, nextFactorType);
                 }
+            } else {
+                return "unknown";
             }
-            return factorType;
         }
-        return "unknown";
     }
+    
+    return factorType;
+}
 
+    // Ajuste também o método getFactorType para lidar melhor com chamadas de função
     private String getFactorType(LangParser.FactorContext factor) {
-        if (factor == null) return "unknown";
+        if (factor == null) {
+            System.out.println("DEBUG: Factor is null");
+            return "unknown";
+        }
         
         if (factor.NUM() != null) {
+            System.out.println("DEBUG: Factor is numeric literal");
             return "int";
         } else if (factor.DECIM() != null) {
+            System.out.println("DEBUG: Factor is decimal literal");
             return "float";
         } else if (factor.VAR() != null) {
             String varName = factor.VAR().getText();
+            System.out.println("DEBUG: Factor is variable: " + varName);
+            
             String varType = currentScope.resolve(varName);
-            return varType != null ? varType : "unknown";
+            if (varType != null) {
+                System.out.println("DEBUG: Found variable type in scope: " + varType);
+                return varType;
+            }
+            return variableTypes.getOrDefault(varName, "unknown");
         } else if (factor.expression() != null) {
             return getExpressionType(factor.expression());
-        } else if (factor.structaccess() != null) {
-            String structVar = factor.structaccess().VAR(0).getText();
-            String field = factor.structaccess().VAR(1).getText();
-            String structType = variableTypes.get(structVar);
+        } else if (factor.funcinvoc() != null) {
+            String funcName = factor.funcinvoc().VAR().getText();
+            System.out.println("DEBUG: Factor is function call: " + funcName);
             
-            if (structType != null && structType.startsWith("struct:")) {
-                String structName = structType.substring(7);
-                Map<String, String> fields = declaredStructs.get(structName);
-                if (fields != null && fields.containsKey(field)) {
-                    return fields.get(field);
-                }
-            }
-        } else if (factor.unionaccess() != null) {
-            String unionVar = factor.unionaccess().VAR(0).getText();
-            String field = factor.unionaccess().VAR(1).getText();
-            String unionType = variableTypes.get(unionVar);
-            
-            if (unionType != null && unionType.startsWith("union:")) {
-                String unionName = unionType.substring(6);
-                Map<String, String> fields = declaredUnions.get(unionName);
-                if (fields != null && fields.containsKey(field)) {
-                    return fields.get(field);
-                }
+            if (declaredFunctions.containsKey(funcName)) {
+                LangParser.FunctionContext funcCtx = declaredFunctions.get(funcName);
+                String returnType = funcCtx.typeSpec() != null ? funcCtx.typeSpec().getText() : "int";
+                System.out.println("DEBUG: Function return type: " + returnType);
+                return returnType;
             }
         }
+        
         return "unknown";
     }
 
     private boolean isNumericType(String type) {
-        return type != null && (type.equals("int") || type.equals("float") || 
-               type.equals("double") || type.equals("char"));
-    }
+    return type != null && (
+        type.equals("int") || 
+        type.equals("float") || 
+        type.equals("double") || 
+        type.equals("char")
+    );
+}
 
     private String getWidestType(String type1, String type2) {
         if (type1.equals("double") || type2.equals("double")) return "double";
@@ -360,80 +383,81 @@ public class SemanticLangListener extends LangBaseListener {
         return "int";
     }
 
-    private boolean isCompatibleType(String expectedType, String actualType) {
-        if (expectedType == null || actualType == null) return false;
-        if (expectedType.equals(actualType)) return true;
-        
-        if (expectedType.startsWith("union:") || actualType.startsWith("union:")) {
-            String unionType = expectedType.startsWith("union:") ? expectedType : actualType;
-            String otherType = expectedType.startsWith("union:") ? actualType : expectedType;
-            
-            String unionName = unionType.substring(6);
-            Map<String, String> fields = declaredUnions.get(unionName);
-            
-            if (fields != null) {
-                return fields.values().stream().anyMatch(fieldType -> 
-                    fieldType.equals(otherType) || isNumericType(fieldType) && isNumericType(otherType)
-                );
-            }
-        }
-        
-        return isNumericType(expectedType) && isNumericType(actualType);
+   private boolean isCompatibleType(String expectedType, String actualType) {
+    System.out.println("DEBUG: Checking type compatibility:");
+    System.out.println("      Expected: " + expectedType);
+    System.out.println("      Actual: " + actualType);
+    
+    if (expectedType == null || actualType == null) {
+        System.out.println("DEBUG: Null type detected");
+        return false;
     }
+    
+    if (expectedType.equals(actualType)) {
+        System.out.println("DEBUG: Exact type match");
+        return true;
+    }
+    
+    if (isNumericType(expectedType) && isNumericType(actualType)) {
+        System.out.println("DEBUG: Both types are numeric");
+        return true;
+    }
+    
+    System.out.println("DEBUG: Types are not compatible");
+    return false;
+}
 
     @Override
     public void exitFuncinvoc(LangParser.FuncinvocContext ctx) {
         String funcName = ctx.VAR().getText();
         
+        // Check if function exists
         if (!declaredFunctions.containsKey(funcName)) {
             errors.add("Function not declared: " + funcName);
             return;
         }
         
         LangParser.FunctionContext funcDecl = declaredFunctions.get(funcName);
-        LangParser.ParamsContext paramsDecl = funcDecl.params();
+        String expectedType = funcDecl.typeSpec() != null ? funcDecl.typeSpec().getText() : "int";
+        
+        // Get arguments
         List<LangParser.ExpressionContext> arguments = 
             ctx.argumentos() != null ? ctx.argumentos().expression() : new ArrayList<>();
         
-        List<TerminalNode> declaredParams = paramsDecl != null ? paramsDecl.VAR() : new ArrayList<>();
-        if (declaredParams.size() != arguments.size()) {
-            errors.add("Incorrect number of arguments for function: " + funcName);
-            return;
-        }
-        
-        if (paramsDecl != null) {
-            List<LangParser.TypeSpecContext> paramTypes = paramsDecl.typeSpec();
+        // Check parameters
+        if (funcDecl.params() != null) {
+            List<TerminalNode> params = funcDecl.params().VAR();
+            List<LangParser.TypeSpecContext> paramTypes = funcDecl.params().typeSpec();
+            
+            // Check number of arguments
+            if (params.size() != arguments.size()) {
+                errors.add("Incorrect number of arguments in call to function: " + funcName);
+                return;
+            }
+            
+            // Check argument types
             for (int i = 0; i < arguments.size(); i++) {
-                String expectedType = paramTypes.get(i).getText();
-                String actualType = getExpressionType(arguments.get(i));
+                String paramType = paramTypes.get(i).getText();
+                String argType = getExpressionType(arguments.get(i));
                 
-                if (!isCompatibleType(expectedType, actualType)) {
-                    errors.add("Incompatible type in argument " + (i + 1) + 
-                            " of function " + funcName);
+                if (!isCompatibleType(paramType, argType)) {
+                    errors.add("Incompatible type for argument " + (i + 1) + 
+                              " in function call " + funcName);
                 }
             }
+        } else if (!arguments.isEmpty()) {
+            errors.add("Function " + funcName + " takes no parameters but was called with arguments");
         }
     }
 
     @Override
-    public void exitFunction(LangParser.FunctionContext ctx) {
-        String funcName;
-        if (ctx.MAIN() != null) {
-            funcName = "main";
-            hasMainFunction = true;
-        } else {
-            funcName = ctx.VAR().getText();
-        }
-        
-        if (declaredFunctions.containsKey(funcName)) {
-            errors.add("Function already declared: " + funcName);
-            return;
-        }
-        
-        declaredFunctions.put(funcName, ctx);
-        
-        currentScope = new Scope(currentScope);
-        
+    public void enterFunction(LangParser.FunctionContext ctx) {
+        // Create new scope BEFORE processing any part of the function
+        Scope functionScope = new Scope(currentScope);
+        scopeStack.push(currentScope);
+        currentScope = functionScope;
+
+        // Add parameters to scope immediately
         if (ctx.params() != null) {
             List<TerminalNode> params = ctx.params().VAR();
             List<LangParser.TypeSpecContext> types = ctx.params().typeSpec();
@@ -442,6 +466,7 @@ public class SemanticLangListener extends LangBaseListener {
                 String paramName = params.get(i).getText();
                 String paramType = types.get(i).getText();
                 
+                System.out.println("DEBUG: Adding parameter to function scope: " + paramName + " : " + paramType);
                 currentScope.define(paramName, paramType);
                 declaredVariables.add(paramName);
                 variableTypes.put(paramName, paramType);
@@ -450,13 +475,31 @@ public class SemanticLangListener extends LangBaseListener {
     }
 
     @Override
-    public void exitFnBlock(LangParser.FnBlockContext ctx) {
-        if (currentScope.parent != null) {
-            currentScope = currentScope.parent;
+    public void exitFunction(LangParser.FunctionContext ctx) {
+        String funcName = ctx.VAR() != null ? ctx.VAR().getText() : "main";
+        String returnType = ctx.typeSpec() != null ? ctx.typeSpec().getText() : "int";
+        
+        if (declaredFunctions.containsKey(funcName)) {
+            errors.add("Function already declared: " + funcName);
+            return;
+        }
+        
+        declaredFunctions.put(funcName, ctx);
+        
+        if (funcName.equals("main")) {
+            hasMainFunction = true;
         }
     }
 
-        @Override
+    @Override
+    public void exitFnBlock(LangParser.FnBlockContext ctx) {
+        // Restore previous scope
+        if (!scopeStack.isEmpty()) {
+            currentScope = scopeStack.pop();
+        }
+    }
+
+    @Override
     public void exitProg(LangParser.ProgContext ctx) {
         if (!hasMainFunction) {
             errors.add("Program does not have a main function");
@@ -466,6 +509,7 @@ public class SemanticLangListener extends LangBaseListener {
     @Override
     public void exitPreprocessorDirective(LangParser.PreprocessorDirectiveContext ctx) {
         String lib = ctx.LIB().getText();
+        // Remove < and >
         lib = lib.substring(1, lib.length() - 1);
         
         if (includedLibs.contains(lib)) {
@@ -582,51 +626,100 @@ public class SemanticLangListener extends LangBaseListener {
         }
     }
 
+    // Método auxiliar para obter lista de erros
     public List<String> getErrors() {
         return errors;
     }
 
+    // Método auxiliar para verificar se houve erros
     public boolean hasErrors() {
         return !errors.isEmpty();
     }
 
     @Override
     public void exitAtrib(LangParser.AtribContext ctx) {
+        String varName = ctx.VAR().getText();
+        System.out.println("DEBUG: Processing variable: " + varName);
+        
         if (ctx.typeSpec() != null) {
-            String varName = ctx.VAR().getText();
             String varType = ctx.typeSpec().getText();
+            System.out.println("DEBUG: Variable type declaration: " + varType);
             
-            if (declaredVariables.contains(varName)) {
+            // Verifica se a variável já existe no escopo atual
+            if (currentScope.resolve(varName) != null) {
                 errors.add("Variable already declared: " + varName);
                 return;
             }
             
-            declaredVariables.add(varName);
-            variableTypes.put(varName, varType);
-            currentScope.define(varName, varType);
-            
-            if (ctx.expression() != null) {
-                String exprType = getExpressionType(ctx.expression());
-                if (!isCompatibleType(varType, exprType)) {
-                    errors.add("Incompatible type in variable initialization: " + varName);
+            // Caso especial: atribuição de função
+            if (ctx.funcinvoc() != null) {
+                String funcName = ctx.funcinvoc().VAR().getText();
+                System.out.println("DEBUG: Function assignment from: " + funcName);
+                
+                if (!declaredFunctions.containsKey(funcName)) {
+                    errors.add("Function not declared: " + funcName);
+                    return;
                 }
-            }
-        } 
-        else {
-            String varName = ctx.VAR().getText();
-            
-            if (!declaredVariables.contains(varName)) {
-                errors.add("Variable not declared: " + varName);
+                
+                LangParser.FunctionContext funcCtx = declaredFunctions.get(funcName);
+                String funcReturnType = funcCtx.typeSpec() != null ? funcCtx.typeSpec().getText() : "int";
+                
+                System.out.println("DEBUG: Function return type: " + funcReturnType);
+                System.out.println("DEBUG: Variable type: " + varType);
+                
+                if (!isCompatibleType(varType, funcReturnType)) {
+                    errors.add("Cannot assign function of type '" + funcReturnType + 
+                            "' to variable of type '" + varType + "'");
+                    return;
+                }
+                
+                validateFunctionArguments(ctx.funcinvoc(), funcCtx);
+                
+                // Registra a variável se tudo estiver correto
+                currentScope.define(varName, varType);
+                declaredVariables.add(varName);
+                variableTypes.put(varName, varType);
                 return;
             }
             
-            String varType = variableTypes.get(varName);
+            // Verificação de expressão normal
+            if (ctx.expression() != null) {
+                String exprType = getExpressionType(ctx.expression());
+                System.out.println("DEBUG: Expression type: " + exprType);
+                
+                if (!isCompatibleType(varType, exprType)) {
+                    System.out.println("DEBUG: Type mismatch error");
+                    errors.add("Incompatible type in variable initialization: " + varName);
+                    return;
+                }
+            }
             
+            // Registra a variável
+            currentScope.define(varName, varType);
+            declaredVariables.add(varName);
+            variableTypes.put(varName, varType);
+        } else {
+            // Verifica atribuição em variável existente
+            String varType = currentScope.resolve(varName);
+            if (varType == null) {
+                if (declaredVariables.contains(varName)) {
+                    varType = variableTypes.get(varName);
+                } else {
+                    errors.add("Variable not declared: " + varName);
+                    return;
+                }
+            }
+            
+            // Trata incremento/decremento
             if (ctx.getText().contains("++") || ctx.getText().contains("--")) {
                 if (!isNumericType(varType)) {
-                    errors.add("Increment/decrement operator requires numeric type: " + varName);             }
+                    errors.add("Increment/decrement operator requires numeric type: " + varName);
+                }
+                return;
             }
-            else if (ctx.expression() != null) {
+            
+            // Trata atribuições normais
+            if (ctx.expression() != null) {
                 String exprType = getExpressionType(ctx.expression());
                 if (!isCompatibleType(varType, exprType)) {
                     errors.add("Incompatible type in assignment: " + varName);
@@ -635,9 +728,39 @@ public class SemanticLangListener extends LangBaseListener {
         }
     }
 
+        private void validateFunctionArguments(LangParser.FuncinvocContext invocation, 
+                                        LangParser.FunctionContext function) {
+        List<LangParser.ExpressionContext> arguments = 
+            invocation.argumentos() != null ? invocation.argumentos().expression() : new ArrayList<>();
+            
+        if (function.params() != null) {
+            List<TerminalNode> params = function.params().VAR();
+            List<LangParser.TypeSpecContext> paramTypes = function.params().typeSpec();
+            
+            if (params.size() != arguments.size()) {
+                errors.add("Incorrect number of arguments in call to function: " + 
+                        invocation.VAR().getText());
+                return;
+            }
+            
+            for (int i = 0; i < arguments.size(); i++) {
+                String paramType = paramTypes.get(i).getText();
+                String argType = getExpressionType(arguments.get(i));
+                
+                if (!isCompatibleType(paramType, argType)) {
+                    errors.add("Incompatible type for argument " + (i + 1) + 
+                            " in function call " + invocation.VAR().getText());
+                }
+            }
+        } else if (!arguments.isEmpty()) {
+            errors.add("Function " + invocation.VAR().getText() + 
+                    " takes no parameters but was called with arguments");
+        }
+    }
+
     @Override
     public void exitExpression(LangParser.ExpressionContext ctx) {
-        if (ctx.VAR() != null) { 
+        if (ctx.VAR() != null) {  // Handle ++/-- in expressions
             String varName = ctx.VAR().getText();
             
             if (!declaredVariables.contains(varName)) {
