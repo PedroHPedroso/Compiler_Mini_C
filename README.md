@@ -44,6 +44,20 @@ union aboba3{
     float h;
 };
 
+void tengoLengo(int g){
+    printf("%d", g);
+}
+
+int soma(int c, int b) {
+    int result = c + b;
+    printf("Ola %d", result);
+    return result;
+}
+
+void printNum(int x) {
+    printf("%d", x);
+}
+
 int main() {
     int x = 7;
     int z = 0;
@@ -56,6 +70,12 @@ int main() {
     
     union aboba3 bacate2;
 
+    int sum = soma(5, 3);
+    tengoLengo(90);
+    printNum(z);
+
+    printf("Valor da função soma: %d",  sum);
+
     printf("Valor de Y na struct: %d", bacate.y);
     printf("Valor W: %f", bacate.w);
 
@@ -63,7 +83,7 @@ int main() {
 
     printf("Print da variavel STR:")
     puts(str);
-    /*printf("%c", str);*/
+    //printf("%c", str);/
     
     // Ler valor em 'x'
     //scanf("%d", &x);
@@ -118,14 +138,18 @@ Saída esperada:
 ```
 === Execution Start ===
 
+Ola 8
+90
+7
+Valor da função soma: 8
 Valor de Y na struct: 5
 Valor W: 5,100000
 >A
 Print da variavel STR:
 A
 Valor da variavel 'a': 7
->5
-5
+>9
+9
 Hello, 14
 x not zero
 0
